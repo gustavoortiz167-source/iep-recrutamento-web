@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Database (NÃO subir banco com dados reais!)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Uploads (NÃO subir documentos de pacientes!)
+uploads/*
+!uploads/.gitkeep
+!uploads/README.md
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# Environment (CRÍTICO: Não subir senhas!)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# NPM (o .npmrc do projeto DEVE ser commitado para funcionar no Render)
+# Mas NUNCA commite .npmrc com credenciais privadas!
+# O .npmrc deste projeto só tem o registry público, então é seguro
+
+# Build
+dist/
+build/
+.cache/
+
+# Misc
+.serverless/
+.webpack/
+.fusebox/
+

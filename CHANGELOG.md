@@ -1,5 +1,21 @@
 # 📝 Histórico de Alterações
 
+## [3.0.0] - 12/11/2024
+
+### ✨ Adicionado
+- Migração para PostgreSQL (dados permanentes)
+- Campo "Status" alterado de input texto para select dropdown
+- Opções predefinidas: "Triagem", "Elegível", "Randomizado"
+
+### 🎯 Benefícios
+- **Dados nunca mais se perdem** em deploys
+- **PostgreSQL gratuito** (512 MB no Render)
+- **Backups automáticos** (7 dias)
+- Padronização de status e estudos
+- Melhor UX com dropdowns
+
+---
+
 ## [2.0.0] - 12/11/2024
 
 ### ✨ Adicionado

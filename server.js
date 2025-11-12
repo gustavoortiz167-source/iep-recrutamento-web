@@ -5,6 +5,30 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const db = require('./database');
+const { usePostgres } = require('./database');
+
+// Helper: Converter query SQLite (?) para PostgreSQL ($1, $2...)
+function convertQuery(sql) {
+  if (!usePostgres) return sql;
+  let index = 0;
+  return sql.replace(/\?/g, () => `$${++index}`);
+}
+
+// Helper: Executar query de forma unificada
+async function runQuery(sql, params = []) {
+  const convertedSql = convertQuery(sql);
+  if (usePostgres) {
+    const result = await db.pool.query(convertedSql, params);
+    return { changes: result.rowCount, lastID: result.rows[0]?.id };
+  } else {
+    return new Promise((resolve, reject) => {
+      db.run(convertedSql, params, function(err) {
+        if (err) reject(err);
+        else resolve({ changes: this.changes, lastID: this.lastID });
+      });
+    });
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,14 +42,10 @@ app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
 
 // Criar diretório de uploads se não existir
-// No plano gratuito do Render, os arquivos serão perdidos a cada redeploy
-// Para armazenamento persistente, é necessário plano premium
 const uploadsDir = path.join(__dirname, 'uploads');
-
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-
 console.log(`📁 Uploads: ${uploadsDir}`);
 
 // Configuração do Multer para upload de arquivos
@@ -52,14 +72,13 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Tipo de arquivo não permitido. Use PDF ou Word.'));
+      cb(new Error('Tipo de arquivo não permitido. Apenas PDF e Word são aceitos.'));
     }
   }
 });
 
 // ==================== MIDDLEWARE DE AUTENTICAÇÃO ====================
 
-// Middleware para verificar senha em operações de escrita
 function requireAuth(req, res, next) {
   const password = req.headers['x-admin-password'] || req.body.password || req.query.password;
   
@@ -82,83 +101,76 @@ function requireAuth(req, res, next) {
 
 // ==================== ROTAS DA API ====================
 
-// GET /api/pacientes - Listar todos os pacientes (LEITURA - SEM SENHA)
-app.get('/api/pacientes', (req, res) => {
-  db.all('SELECT * FROM pacientes ORDER BY data DESC', [], (err, rows) => {
-    if (err) {
-      console.error('Erro ao buscar pacientes:', err);
-      return res.status(500).json({ error: 'Erro ao buscar pacientes' });
-    }
+// GET /api/pacientes - Listar todos os pacientes
+app.get('/api/pacientes', async (req, res) => {
+  try {
+    const rows = await db.all('SELECT * FROM pacientes ORDER BY data DESC');
     res.json(rows);
-  });
+  } catch (err) {
+    console.error('Erro ao buscar pacientes:', err);
+    res.status(500).json({ error: 'Erro ao buscar pacientes' });
+  }
 });
 
-// GET /api/pacientes/:id - Buscar paciente por ID (LEITURA - SEM SENHA)
-app.get('/api/pacientes/:id', (req, res) => {
-  const { id } = req.params;
-  db.get('SELECT * FROM pacientes WHERE id = ?', [id], (err, row) => {
-    if (err) {
-      console.error('Erro ao buscar paciente:', err);
-      return res.status(500).json({ error: 'Erro ao buscar paciente' });
-    }
+// GET /api/pacientes/:id - Buscar paciente por ID
+app.get('/api/pacientes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sql = convertQuery('SELECT * FROM pacientes WHERE id = ?');
+    const row = await db.get(sql, [id]);
+    
     if (!row) {
       return res.status(404).json({ error: 'Paciente não encontrado' });
     }
 
-    // Buscar documentos do paciente
-    db.all('SELECT * FROM documentos WHERE paciente_id = ?', [id], (err, docs) => {
-      if (err) {
-        console.error('Erro ao buscar documentos:', err);
-        return res.status(500).json({ error: 'Erro ao buscar documentos' });
-      }
-      res.json({ ...row, documentos: docs });
-    });
-  });
+    const docSql = convertQuery('SELECT * FROM documentos WHERE paciente_id = ?');
+    const docs = await db.all(docSql, [id]);
+    
+    res.json({ ...row, documentos: docs });
+  } catch (err) {
+    console.error('Erro ao buscar paciente:', err);
+    res.status(500).json({ error: 'Erro ao buscar paciente' });
+  }
 });
 
-// POST /api/pacientes - Criar novo paciente (ESCRITA - REQUER SENHA)
-app.post('/api/pacientes', requireAuth, upload.array('documentos', 10), (req, res) => {
-  const {
-    id, nome, status, estudo, data, encaminhador,
-    tcleAgendado, tcleAssinado, dataAssinatura,
-    elegivel, motivoNaoElegivel
-  } = req.body;
-
-  const pacienteId = id || 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-
-  const sql = `
-    INSERT INTO pacientes (
+// POST /api/pacientes - Criar novo paciente
+app.post('/api/pacientes', requireAuth, upload.array('documentos', 10), async (req, res) => {
+  try {
+    const {
       id, nome, status, estudo, data, encaminhador,
       tcleAgendado, tcleAssinado, dataAssinatura,
       elegivel, motivoNaoElegivel
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
+    } = req.body;
 
-  db.run(sql, [
-    pacienteId, nome, status, estudo, data, encaminhador,
-    tcleAgendado, tcleAssinado, dataAssinatura,
-    elegivel, motivoNaoElegivel
-  ], function(err) {
-    if (err) {
-      console.error('Erro ao inserir paciente:', err);
-      return res.status(500).json({ error: 'Erro ao criar paciente' });
-    }
+    const pacienteId = id || 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+    const sql = `
+      INSERT INTO pacientes (
+        id, nome, status, estudo, data, encaminhador,
+        tcleAgendado, tcleAssinado, dataAssinatura,
+        elegivel, motivoNaoElegivel
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    await runQuery(sql, [
+      pacienteId, nome, status, estudo, data, encaminhador,
+      tcleAgendado, tcleAssinado, dataAssinatura,
+      elegivel, motivoNaoElegivel
+    ]);
 
     // Salvar documentos se houver
     if (req.files && req.files.length > 0) {
       const docSql = 'INSERT INTO documentos (paciente_id, nome_arquivo, caminho_arquivo, tamanho, tipo) VALUES (?, ?, ?, ?, ?)';
       
-      req.files.forEach(file => {
-        db.run(docSql, [
+      for (const file of req.files) {
+        await runQuery(docSql, [
           pacienteId,
           file.originalname,
           file.filename,
           file.size,
           file.mimetype
-        ], (err) => {
-          if (err) console.error('Erro ao salvar documento:', err);
-        });
-      });
+        ]);
+      }
     }
 
     res.status(201).json({ 
@@ -166,38 +178,38 @@ app.post('/api/pacientes', requireAuth, upload.array('documentos', 10), (req, re
       id: pacienteId,
       documentos: req.files ? req.files.length : 0
     });
-  });
+  } catch (err) {
+    console.error('Erro ao criar paciente:', err);
+    res.status(500).json({ error: 'Erro ao criar paciente' });
+  }
 });
 
-// PUT /api/pacientes/:id - Atualizar paciente (ESCRITA - REQUER SENHA)
-app.put('/api/pacientes/:id', requireAuth, upload.array('documentos', 10), (req, res) => {
-  const { id } = req.params;
-  const {
-    nome, status, estudo, data, encaminhador,
-    tcleAgendado, tcleAssinado, dataAssinatura,
-    elegivel, motivoNaoElegivel
-  } = req.body;
+// PUT /api/pacientes/:id - Atualizar paciente
+app.put('/api/pacientes/:id', requireAuth, upload.array('documentos', 10), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      nome, status, estudo, data, encaminhador,
+      tcleAgendado, tcleAssinado, dataAssinatura,
+      elegivel, motivoNaoElegivel
+    } = req.body;
 
-  const sql = `
-    UPDATE pacientes SET
-      nome = ?, status = ?, estudo = ?, data = ?, encaminhador = ?,
-      tcleAgendado = ?, tcleAssinado = ?, dataAssinatura = ?,
-      elegivel = ?, motivoNaoElegivel = ?,
-      updatedAt = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
+    const sql = `
+      UPDATE pacientes SET
+        nome = ?, status = ?, estudo = ?, data = ?, encaminhador = ?,
+        tcleAgendado = ?, tcleAssinado = ?, dataAssinatura = ?,
+        elegivel = ?, motivoNaoElegivel = ?,
+        updatedAt = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
 
-  db.run(sql, [
-    nome, status, estudo, data, encaminhador,
-    tcleAgendado, tcleAssinado, dataAssinatura,
-    elegivel, motivoNaoElegivel, id
-  ], function(err) {
-    if (err) {
-      console.error('Erro ao atualizar paciente:', err);
-      return res.status(500).json({ error: 'Erro ao atualizar paciente' });
-    }
+    const result = await runQuery(sql, [
+      nome, status, estudo, data, encaminhador,
+      tcleAgendado, tcleAssinado, dataAssinatura,
+      elegivel, motivoNaoElegivel, id
+    ]);
 
-    if (this.changes === 0) {
+    if (result.changes === 0) {
       return res.status(404).json({ error: 'Paciente não encontrado' });
     }
 
@@ -205,80 +217,81 @@ app.put('/api/pacientes/:id', requireAuth, upload.array('documentos', 10), (req,
     if (req.files && req.files.length > 0) {
       const docSql = 'INSERT INTO documentos (paciente_id, nome_arquivo, caminho_arquivo, tamanho, tipo) VALUES (?, ?, ?, ?, ?)';
       
-      req.files.forEach(file => {
-        db.run(docSql, [
+      for (const file of req.files) {
+        await runQuery(docSql, [
           id,
           file.originalname,
           file.filename,
           file.size,
           file.mimetype
-        ], (err) => {
-          if (err) console.error('Erro ao salvar documento:', err);
-        });
-      });
+        ]);
+      }
     }
 
     res.json({ 
       message: 'Paciente atualizado com sucesso',
       documentos: req.files ? req.files.length : 0
     });
-  });
+  } catch (err) {
+    console.error('Erro ao atualizar paciente:', err);
+    res.status(500).json({ error: 'Erro ao atualizar paciente' });
+  }
 });
 
-// DELETE /api/pacientes/:id - Deletar paciente (ESCRITA - REQUER SENHA)
-app.delete('/api/pacientes/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
+// DELETE /api/pacientes/:id - Deletar paciente
+app.delete('/api/pacientes/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  // Buscar documentos para deletar arquivos físicos
-  db.all('SELECT caminho_arquivo FROM documentos WHERE paciente_id = ?', [id], (err, docs) => {
-    if (!err && docs) {
-      docs.forEach(doc => {
-        const filePath = path.join(uploadsDir, doc.caminho_arquivo);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      });
-    }
+    // Buscar documentos para deletar arquivos físicos
+    const docSql = convertQuery('SELECT caminho_arquivo FROM documentos WHERE paciente_id = ?');
+    const docs = await db.all(docSql, [id]);
+    
+    docs.forEach(doc => {
+      const filePath = path.join(uploadsDir, doc.caminho_arquivo);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    });
 
     // Deletar documentos do banco
-    db.run('DELETE FROM documentos WHERE paciente_id = ?', [id], (err) => {
-      if (err) console.error('Erro ao deletar documentos:', err);
-    });
+    await runQuery('DELETE FROM documentos WHERE paciente_id = ?', [id]);
 
     // Deletar paciente
-    db.run('DELETE FROM pacientes WHERE id = ?', [id], function(err) {
-      if (err) {
-        console.error('Erro ao deletar paciente:', err);
-        return res.status(500).json({ error: 'Erro ao deletar paciente' });
-      }
+    const result = await runQuery('DELETE FROM pacientes WHERE id = ?', [id]);
 
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'Paciente não encontrado' });
-      }
-
-      res.json({ message: 'Paciente deletado com sucesso' });
-    });
-  });
-});
-
-// GET /api/documentos/:pacienteId - Listar documentos de um paciente (LEITURA - SEM SENHA)
-app.get('/api/documentos/:pacienteId', (req, res) => {
-  const { pacienteId } = req.params;
-  db.all('SELECT * FROM documentos WHERE paciente_id = ?', [pacienteId], (err, rows) => {
-    if (err) {
-      console.error('Erro ao buscar documentos:', err);
-      return res.status(500).json({ error: 'Erro ao buscar documentos' });
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Paciente não encontrado' });
     }
-    res.json(rows);
-  });
+
+    res.json({ message: 'Paciente deletado com sucesso' });
+  } catch (err) {
+    console.error('Erro ao deletar paciente:', err);
+    res.status(500).json({ error: 'Erro ao deletar paciente' });
+  }
 });
 
-// DELETE /api/documentos/:id - Deletar documento (ESCRITA - REQUER SENHA)
-app.delete('/api/documentos/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
+// GET /api/documentos/:pacienteId - Listar documentos de um paciente
+app.get('/api/documentos/:pacienteId', async (req, res) => {
+  try {
+    const { pacienteId } = req.params;
+    const sql = convertQuery('SELECT * FROM documentos WHERE paciente_id = ?');
+    const rows = await db.all(sql, [pacienteId]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Erro ao buscar documentos:', err);
+    res.status(500).json({ error: 'Erro ao buscar documentos' });
+  }
+});
 
-  db.get('SELECT caminho_arquivo FROM documentos WHERE id = ?', [id], (err, doc) => {
-    if (err || !doc) {
+// DELETE /api/documentos/:id - Deletar documento
+app.delete('/api/documentos/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sql = convertQuery('SELECT caminho_arquivo FROM documentos WHERE id = ?');
+    const doc = await db.get(sql, [id]);
+
+    if (!doc) {
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
 
@@ -289,43 +302,42 @@ app.delete('/api/documentos/:id', requireAuth, (req, res) => {
     }
 
     // Deletar do banco
-    db.run('DELETE FROM documentos WHERE id = ?', [id], function(err) {
-      if (err) {
-        console.error('Erro ao deletar documento:', err);
-        return res.status(500).json({ error: 'Erro ao deletar documento' });
-      }
-      res.json({ message: 'Documento deletado com sucesso' });
-    });
-  });
+    await runQuery('DELETE FROM documentos WHERE id = ?', [id]);
+    res.json({ message: 'Documento deletado com sucesso' });
+  } catch (err) {
+    console.error('Erro ao deletar documento:', err);
+    res.status(500).json({ error: 'Erro ao deletar documento' });
+  }
 });
 
-// POST /api/configuracoes/logo - Salvar logo (ESCRITA - REQUER SENHA)
-app.post('/api/configuracoes/logo', requireAuth, (req, res) => {
-  const { logoData } = req.body;
-  
-  const sql = `
-    INSERT OR REPLACE INTO configuracoes (chave, valor, updatedAt)
-    VALUES ('logo', ?, CURRENT_TIMESTAMP)
-  `;
+// POST /api/configuracoes/logo - Salvar logo
+app.post('/api/configuracoes/logo', requireAuth, async (req, res) => {
+  try {
+    const { logoData } = req.body;
+    
+    // PostgreSQL usa ON CONFLICT, SQLite usa INSERT OR REPLACE
+    const sql = usePostgres
+      ? `INSERT INTO configuracoes (chave, valor, updatedAt) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (chave) DO UPDATE SET valor = $2, updatedAt = CURRENT_TIMESTAMP`
+      : `INSERT OR REPLACE INTO configuracoes (chave, valor, updatedAt) VALUES (?, ?, CURRENT_TIMESTAMP)`;
 
-  db.run(sql, [logoData], (err) => {
-    if (err) {
-      console.error('Erro ao salvar logo:', err);
-      return res.status(500).json({ error: 'Erro ao salvar logo' });
-    }
+    await runQuery(sql, ['logo', logoData]);
     res.json({ message: 'Logo salvo com sucesso' });
-  });
+  } catch (err) {
+    console.error('Erro ao salvar logo:', err);
+    res.status(500).json({ error: 'Erro ao salvar logo' });
+  }
 });
 
-// GET /api/configuracoes/logo - Buscar logo (LEITURA - SEM SENHA)
-app.get('/api/configuracoes/logo', (req, res) => {
-  db.get('SELECT valor FROM configuracoes WHERE chave = ?', ['logo'], (err, row) => {
-    if (err) {
-      console.error('Erro ao buscar logo:', err);
-      return res.status(500).json({ error: 'Erro ao buscar logo' });
-    }
+// GET /api/configuracoes/logo - Buscar logo
+app.get('/api/configuracoes/logo', async (req, res) => {
+  try {
+    const sql = convertQuery('SELECT valor FROM configuracoes WHERE chave = ?');
+    const row = await db.get(sql, ['logo']);
     res.json({ logo: row ? row.valor : null });
-  });
+  } catch (err) {
+    console.error('Erro ao buscar logo:', err);
+    res.status(500).json({ error: 'Erro ao buscar logo' });
+  }
 });
 
 // ==================== INICIAR SERVIDOR ====================
@@ -333,16 +345,22 @@ app.get('/api/configuracoes/logo', (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor IEP Recrutamento rodando!`);
   console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`📦 Banco de dados: SQLite (iep_recrutamento.db)`);
-  console.log(`📁 Uploads: ${uploadsDir}\n`);
+  console.log(`🔐 ADMIN_PASSWORD configurada`);
+  if (usePostgres) {
+    console.log(`✅ PostgreSQL conectado (dados persistentes)`);
+  } else {
+    console.log(`✅ SQLite local (dados em iep_recrutamento.db)`);
+  }
+  console.log(``);
 });
 
 // Tratamento de erros
-process.on('SIGINT', () => {
-  db.close((err) => {
-    if (err) console.error('Erro ao fechar banco:', err);
-    console.log('\n👋 Servidor encerrado');
-    process.exit(0);
-  });
+process.on('SIGINT', async () => {
+  console.log('\n👋 Encerrando servidor...');
+  if (usePostgres) {
+    await db.pool.end();
+  } else {
+    db.close();
+  }
+  process.exit(0);
 });
-

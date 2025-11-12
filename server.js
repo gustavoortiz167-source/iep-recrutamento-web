@@ -18,11 +18,9 @@ app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
 
 // Criar diretório de uploads se não existir
-// Para produção (Render), usar disco persistente
-const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-const uploadsDir = isProduction 
-  ? path.join('/app/data', 'uploads')
-  : path.join(__dirname, 'uploads');
+// No plano gratuito do Render, os arquivos serão perdidos a cada redeploy
+// Para armazenamento persistente, é necessário plano premium
+const uploadsDir = path.join(__dirname, 'uploads');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });

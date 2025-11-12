@@ -2,18 +2,10 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-// Para produção (Render), usar disco persistente
-// Para desenvolvimento, usar pasta local
-const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-const dataDir = isProduction ? '/app/data' : __dirname;
-
-// Criar diretório se não existir
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
 // Caminho do banco de dados
-const DB_PATH = path.join(dataDir, 'iep_recrutamento.db');
+// No plano gratuito do Render, os dados serão perdidos a cada redeploy
+// Para disco persistente, é necessário plano premium
+const DB_PATH = path.join(__dirname, 'iep_recrutamento.db');
 
 console.log(`📦 Banco de dados: ${DB_PATH}`);
 

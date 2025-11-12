@@ -484,6 +484,20 @@ async function deletePatient(id){
   }
 }
 
+async function openDocumento(id){
+  try{
+    const res = await fetch(`${API_BASE}/documentos/${id}`);
+    if(!res.ok){ showToast("Erro ao buscar documentos", true); return; }
+    const docs = await res.json();
+    if(!docs || docs.length===0){ showToast("Cadastro sem documento anexado", true); return; }
+    const doc = docs[docs.length-1];
+    const url = `/uploads/${doc.caminho_arquivo}`;
+    window.open(url, '_blank');
+  }catch(e){
+    showToast("Erro ao abrir documento", true);
+  }
+}
+
 /* ======= INDICADORES ======= */
 function computeIndicators(list){
   const inseridos = list.length;
@@ -597,6 +611,7 @@ function renderTable(){
         <td>${r.tcleAssinado==="Sim" ? '<span class="mono" style="color:#7CFC90">Sim</span>' : '<span class="mono" style="color:#bbb">Não</span>'}</td>
         <td class="nowrap">
           <button class="btn" onclick="editPatient('${r.id}')">✏️</button>
+          <button class="btn btn-ghost" onclick="openDocumento('${r.id}')">📄</button>
           <button class="btn btn-ghost" onclick="deletePatient('${r.id}')">🗑️</button>
         </td>
       </tr>

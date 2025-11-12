@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IEP São Lucas • Recrutamento & Screening (v7.1 • IndexedDB + Backup)</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<style>
+  :root{
+    --azul-iep:#0055A4; --azul-claro:#1E90FF;
+    --bg:#1b1b1d; --card:#2a2a2d; --line:#303030;
+    --txt:#f1f1f1; --muted:#cfcfcf; --ok:#28a745; --chip:#6c757d; --err:#e74c3c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto}
+  header{display:flex;align-items:center;gap:16px;background:var(--card);padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header img{height:46px;object-fit:contain}
+  header h1{font-size:18px;margin:0;font-weight:600}
+  .grow{flex:1}
+  .btn{background:var(--azul-iep);color:white;border:none;border-radius:8px;padding:9px 12px;cursor:pointer;font-weight:600}
+  .btn:hover{background:var(--azul-claro)}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  .container{max-width:1280px;margin:0 auto;padding:24px}
+  .section{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.18);margin-bottom:24px}
+  .section h2{margin:0;padding:16px 18px;border-bottom:1px solid var(--line);font-size:18px}
+  .section .body{padding:16px 18px}
+  .grid{display:grid;gap:12px}
+  .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .field{display:flex;flex-direction:column;gap:6px}
+  input,select,textarea{background:#111;border:1px solid #444;color:#eee;border-radius:8px;padding:10px 12px;font-size:14px;outline:none}
+  input.err,select.err,textarea.err{border-color:var(--err)}
+  .hint{font-size:12px;color:#bbb}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+  th{background:#202020;color:#bbb;font-weight:600}
+  tr:hover{background:#151515}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .cards{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .card{background:#1d1d1f;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+  .card .kpi{font-size:26px;font-weight:700;color:var(--azul-claro)}
+  .muted{color:var(--muted)}
+  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+  .nowrap{white-space:nowrap}
+  .mt8{margin-top:8px} .mt12{margin-top:12px}
+  .hidden{display:none}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);top:12px;background:#0f5132;color:#d1e7dd;border:1px solid #145a41;border-radius:10px;padding:10px 14px;z-index:9999;box-shadow:0 8px 18px rgba(0,0,0,.3)}
+  .toast.err{background:#662222;color:#ffdede;border-color:#993333}
+  @media (max-width:980px){ .cards{grid-template-columns:repeat(2,minmax(0,1fr))} .g4{grid-template-columns:repeat(2,minmax(0,1fr))} }
+</style>
+</head>
+<body>
+
+<header>
+  <img id="logoImg" alt="IEP São Lucas (logo)">
+  <h1>Recrutamento & Screening</h1>
+  <div class="grow"></div>
+  <input id="logoInput" type="file" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
+  <button class="btn btn-ghost" onclick="byId('logoInput').click()">Trocar logo</button>
+</header>
+
+<div id="toast" class="toast hidden"></div>
+
+<div class="container">
+
+  <!-- CADASTRO / EDIÇÃO -->
+  <div class="section">
+    <h2>Cadastro de Paciente</h2>
+    <div class="body grid g4" id="patientForm">
+      <div class="field"><span class="muted">Nome completo</span><input id="nome" placeholder="Ex.: João da Silva"/></div>
+      <div class="field"><span class="muted">Status</span><input id="status" placeholder="Triagem / Elegível / Randomizado"/></div>
+      <div class="field"><span class="muted">Estudo</span><input id="estudo" placeholder="Tropion 7, M-18..."/></div>
+      <div class="field"><span class="muted">Data (cadastro)</span><input id="data" type="date"/></div>
+
+      <div class="field">
+        <span class="muted">Encaminhador</span>
+        <select id="encaminhador" onchange="toggleOutroEnc()">
+          <option value="">Selecione…</option>
+          <option>Dr. Milton</option><option>Dr. Hélio</option>
+          <option>Dr. Thiago</option><option>ALTY</option><option>Outro</option>
+        </select>
+      </div>
+      <div class="field" id="wrapOutroEnc" style="display:none"><span class="muted">Outro encaminhador</span><input id="outroEncaminhador" placeholder="Digite o nome"/></div>
+
+      <div class="field"><span class="muted">TCLE Agendado?</span><select id="tcleAgendado"><option>Não</option><option>Sim</option></select></div>
+      <div class="field"><span class="muted">TCLE Assinado?</span><select id="tcleAssinado" onchange="toggleDataAss()"><option>Não</option><option>Sim</option></select></div>
+      <div class="field" id="wrapDataAss"><span class="muted">Data da Assinatura</span><input id="dataAssinatura" type="date"/></div>
+
+      <div class="field"><span class="muted">Elegível?</span><select id="elegivel" onchange="toggleMotivo()"><option value="">Selecione…</option><option>Sim</option><option>Não</option></select><span class="hint">Se marcar "Não", informe o motivo.</span></div>
+      <div class="field" id="wrapMotivo" style="grid-column: span 3; display:none;"><span class="muted">Motivo da não elegibilidade</span><textarea id="motivoNaoElegivel" placeholder="Descreva de forma objetiva"></textarea></div>
+
+      <div class="field" style="grid-column: span 2;">
+        <span class="muted">Anexar documentos (PDF ou Word)</span>
+        <input id="documentos" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple style="padding:8px"/>
+        <span class="hint">Aceita arquivos .pdf, .doc, .docx (múltiplos arquivos permitidos)</span>
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <span class="muted">Arquivos anexados</span>
+        <div id="listaArquivos" style="font-size:12px; color:#bbb; min-height:20px;">(nenhum arquivo selecionado)</div>
+      </div>
+
+      <input type="hidden" id="editingId"/>
+      <div class="field" style="grid-column: span 4; display:flex; gap:12px; justify-content:flex-end;">
+        <button class="btn" onclick="submitForm()" id="btnSubmit">Adicionar paciente</button>
+        <button class="btn btn-ghost" onclick="resetForm()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISÃO -->
+  <div class="section">
+    <h2>Visão</h2>
+    <div class="body row">
+      <div class="field">
+        <span class="muted">Selecionar mês (aplica filtro):</span>
+        <input id="monthFilter" type="month" onchange="refreshUI()"/>
+      </div>
+      <button class="btn btn-ghost" onclick="clearMonth()">Limpar filtro</button>
+    </div>
+  </div>
+
+  <!-- INDICADORES -->
+  <div class="section">
+    <h2>Indicadores</h2>
+    <div class="body">
+      <div class="row" style="justify-content:flex-end; margin-bottom:12px">
+        <button class="btn btn-ghost" onclick="exportIndicatorsCSV()">Exportar indicadores (.csv)</button>
+        <button class="btn btn-ghost" onclick="exportIndicatorsJSON()">Exportar indicadores (.json)</button>
+        <button class="btn btn-ghost" onclick="exportIndicatorsPDF()">Exportar indicadores (.pdf)</button>
+      </div>
+
+      <div class="cards">
+        <div class="card"><div class="muted">Inseridos</div><div id="kpiInseridos" class="kpi">0</div></div>
+        <div class="card"><div class="muted">Elegíveis</div><div id="kpiElegiveis" class="kpi">0</div></div>
+        <div class="card"><div class="muted">Não elegíveis</div><div id="kpiNaoElegiveis" class="kpi">0</div></div>
+        <div class="card"><div class="muted">TCLE assinados</div><div id="kpiTCLE" class="kpi">0</div></div>
+      </div>
+
+      <div class="card mt12" style="text-align:left">
+        <div class="muted">Encaminhadores (detalhado)</div>
+        <pre id="kpiEncaminhador" class="mono" style="margin:8px 0 0; color:var(--azul-claro); white-space:pre-wrap;"></pre>
+      </div>
+
+      <div class="card mt12" style="text-align:left">
+        <div class="muted">Elegíveis por estudo</div>
+        <pre id="kpiEstudosElegiveis" class="mono" style="margin:8px 0 0; color:var(--azul-claro); white-space:pre-wrap;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRÁFICO -->
+  <div class="section">
+    <h2>Distribuição por Status</h2>
+    <div class="body"><canvas id="statusChart" style="max-height:360px"></canvas></div>
+  </div>
+
+  <!-- TABELA -->
+  <div class="section">
+    <h2>Pacientes</h2>
+    <div class="body">
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th><th>Status</th><th>Estudo</th><th>Encaminhador</th>
+            <th>Elegível?</th><th>Motivo</th><th>Data</th><th>TCLE</th><th class="nowrap">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div id="emptyMsg" class="muted mt8"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======= CONFIGURAÇÃO DA API ======= */
+const API_BASE = window.location.origin + '/api';  // URL base da API
+
+/* ======= ESTADO ======= */
+let DB = [];          // cache em memória
+let CHART = null;
+let ADMIN_PASSWORD = null;  // senha armazenada na sessão
+
+/* ======= HELPERS ======= */
+function byId(id){ return document.getElementById(id); }
+const uid = () => "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+const esc = (s) => (s ?? "").toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const parseMonth = (yyyyMM) => { if(!yyyyMM) return null; const [y,m] = yyyyMM.split("-").map(Number); return {y,m}; };
+const inSelectedMonth = (dateStr, sel) => { if(!sel) return true; if(!dateStr) return false; const d=new Date(dateStr); return (d.getFullYear()===sel.y)&&(d.getMonth()+1===sel.m); };
+
+/* ======= TOAST ======= */
+function showToast(msg, isErr=false){
+  const t = byId("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  t.classList.toggle("err", !!isErr);
+  setTimeout(()=>t.classList.add("hidden"), 2200);
+}
+
+/* ======= API - FUNÇÕES DE COMUNICAÇÃO COM SERVIDOR ======= */
+
+// Função para solicitar senha de admin
+async function getAdminPassword(){
+  if(ADMIN_PASSWORD) return ADMIN_PASSWORD;
+  
+  const senha = prompt('🔐 Digite a senha de administrador para fazer alterações:');
+  if(!senha){
+    showToast('Senha necessária para esta operação', true);
+    return null;
+  }
+  
+  ADMIN_PASSWORD = senha;
+  return senha;
+}
+
+// Função auxiliar para adicionar senha no cabeçalho
+function getAuthHeaders(){
+  return ADMIN_PASSWORD ? { 'x-admin-password': ADMIN_PASSWORD } : {};
+}
+
+async function apiGetPacientes(){
+  try{
+    const res = await fetch(`${API_BASE}/pacientes`);
+    if(!res.ok) throw new Error('Erro ao carregar pacientes');
+    return await res.json();
+  }catch(e){
+    console.error('Erro ao buscar pacientes:', e);
+    showToast('Erro ao carregar dados do servidor', true);
+    return [];
+  }
+}
+
+async function apiCreatePaciente(data, files){
+  const senha = await getAdminPassword();
+  if(!senha) return null;
+  
+  try{
+    const formData = new FormData();
+    Object.keys(data).forEach(key => formData.append(key, data[key]));
+    if(files && files.length > 0){
+      for(let i = 0; i < files.length; i++){
+        formData.append('documentos', files[i]);
+      }
+    }
+    const res = await fetch(`${API_BASE}/pacientes`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData
+    });
+    if(res.status === 401 || res.status === 403){
+      ADMIN_PASSWORD = null;  // limpa senha incorreta
+      const errData = await res.json();
+      showToast(errData.error || 'Senha incorreta', true);
+      return null;
+    }
+    if(!res.ok) throw new Error('Erro ao criar paciente');
+    return await res.json();
+  }catch(e){
+    console.error('Erro ao criar paciente:', e);
+    showToast('Erro ao salvar paciente', true);
+    return null;
+  }
+}
+
+async function apiUpdatePaciente(id, data, files){
+  const senha = await getAdminPassword();
+  if(!senha) return null;
+  
+  try{
+    const formData = new FormData();
+    Object.keys(data).forEach(key => formData.append(key, data[key]));
+    if(files && files.length > 0){
+      for(let i = 0; i < files.length; i++){
+        formData.append('documentos', files[i]);
+      }
+    }
+    const res = await fetch(`${API_BASE}/pacientes/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: formData
+    });
+    if(res.status === 401 || res.status === 403){
+      ADMIN_PASSWORD = null;
+      const errData = await res.json();
+      showToast(errData.error || 'Senha incorreta', true);
+      return null;
+    }
+    if(!res.ok) throw new Error('Erro ao atualizar paciente');
+    return await res.json();
+  }catch(e){
+    console.error('Erro ao atualizar paciente:', e);
+    showToast('Erro ao atualizar paciente', true);
+    return null;
+  }
+}
+
+async function apiDeletePaciente(id){
+  const senha = await getAdminPassword();
+  if(!senha) return null;
+  
+  try{
+    const res = await fetch(`${API_BASE}/pacientes/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if(res.status === 401 || res.status === 403){
+      ADMIN_PASSWORD = null;
+      const errData = await res.json();
+      showToast(errData.error || 'Senha incorreta', true);
+      return null;
+    }
+    if(!res.ok) throw new Error('Erro ao deletar paciente');
+    return await res.json();
+  }catch(e){
+    console.error('Erro ao deletar paciente:', e);
+    showToast('Erro ao remover paciente', true);
+    return null;
+  }
+}
+
+/* ======= LOGO ======= */
+async function handleLogoUpload(ev){
+  const file = ev.target.files?.[0]; if(!file) return;
+  const senha = await getAdminPassword();
+  if(!senha) return;
+  
+  const fr = new FileReader();
+  fr.onload = async () => {
+    byId("logoImg").src = fr.result;
+    // Salvar no servidor
+    try{
+      const res = await fetch(`${API_BASE}/configuracoes/logo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ logoData: fr.result })
+      });
+      if(res.status === 401 || res.status === 403){
+        ADMIN_PASSWORD = null;
+        const errData = await res.json();
+        showToast(errData.error || 'Senha incorreta', true);
+        return;
+      }
+      showToast('Logo atualizado com sucesso');
+    }catch(e){
+      console.error('Erro ao salvar logo:', e);
+      showToast('Erro ao salvar logo', true);
+    }
+  };
+  fr.readAsDataURL(file);
+}
+
+async function loadLogo(){
+  try{
+    const res = await fetch(`${API_BASE}/configuracoes/logo`);
+    const data = await res.json();
+    byId("logoImg").src = data.logo || "https://upload.wikimedia.org/wikipedia/commons/3/3f/Transparent_placeholder.png";
+  }catch(e){
+    byId("logoImg").src = "https://upload.wikimedia.org/wikipedia/commons/3/3f/Transparent_placeholder.png";
+  }
+}
+
+/* ======= DATASET ======= */
+function dataset(){
+  const sel = parseMonth(byId("monthFilter").value);
+  return DB.filter(r => inSelectedMonth(r.data, sel));
+}
+
+/* ======= FORM ======= */
+function toggleOutroEnc(){ byId("wrapOutroEnc").style.display = (byId("encaminhador").value === "Outro") ? "block" : "none"; }
+function toggleMotivo(){ byId("wrapMotivo").style.display = (byId("elegivel").value === "Não") ? "block" : "none"; }
+function toggleDataAss(){}
+
+// Atualiza lista de arquivos selecionados
+byId("documentos").addEventListener("change", function(e){
+  const files = Array.from(e.target.files);
+  const lista = byId("listaArquivos");
+  if(files.length === 0){
+    lista.textContent = "(nenhum arquivo selecionado)";
+  } else {
+    lista.innerHTML = files.map(f => `<div>📄 ${esc(f.name)} (${(f.size/1024).toFixed(1)} KB)</div>`).join("");
+  }
+});
+
+function markErr(el, on){ el.classList.toggle("err", on); }
+function clearErrs(){
+  ["nome","status","estudo","data","dataAssinatura","outroEncaminhador","motivoNaoElegivel"].forEach(id=>markErr(byId(id),false));
+}
+
+function readForm(){
+  clearErrs();
+  const nome = byId("nome").value.trim();
+  const status = byId("status").value.trim();
+  const estudo = byId("estudo").value.trim();
+  const data = byId("data").value;
+  let encaminhador = byId("encaminhador").value;
+  if(encaminhador === "Outro"){
+    const outro = byId("outroEncaminhador").value.trim();
+    if(!outro){ markErr(byId("outroEncaminhador"),true); showToast("Informe o nome do encaminhador.", true); return null; }
+    encaminhador = outro;
+  }
+  const tcleAgendado = byId("tcleAgendado").value;
+  const tcleAssinado = byId("tcleAssinado").value;
+  const dataAssinatura = byId("dataAssinatura").value;
+  const elegivel = byId("elegivel").value;
+  const motivoNaoElegivel = byId("motivoNaoElegivel").value.trim();
+
+  let invalid = false;
+  if(!nome){ markErr(byId("nome"),true); invalid = true; }
+  if(!status){ markErr(byId("status"),true); invalid = true; }
+  if(!estudo){ markErr(byId("estudo"),true); invalid = true; }
+  if(!data){ markErr(byId("data"),true); invalid = true; }
+  if(tcleAssinado === "Sim" && !dataAssinatura){ markErr(byId("dataAssinatura"),true); invalid = true; showToast("TCLE = Sim → informe a data da assinatura.", true); }
+  if(elegivel === "Não" && !motivoNaoElegivel){ markErr(byId("motivoNaoElegivel"),true); invalid = true; showToast("Elegível = Não → informe o motivo.", true); }
+  if(invalid){ return null; }
+
+  return { nome, status, estudo, data, encaminhador, tcleAgendado, tcleAssinado, dataAssinatura, elegivel, motivoNaoElegivel };
+}
+
+/* ======= CRUD ======= */
+async function submitForm(){
+  const rec = readForm(); if(!rec) return;
+  const idEdit = byId("editingId").value;
+  const files = byId("documentos").files;
+  
+  let result;
+  if(idEdit){
+    // Atualizar paciente existente
+    result = await apiUpdatePaciente(idEdit, rec, files);
+  } else {
+    // Criar novo paciente
+    result = await apiCreatePaciente(rec, files);
+  }
+  
+  if(result){
+    showToast(idEdit ? "Paciente atualizado com sucesso!" : "Paciente cadastrado com sucesso!");
+    resetForm();
+    await loadPacientes();
+    refreshUI();
+  }
+}
+
+function resetForm(){
+  Array.from(byId("patientForm").querySelectorAll("input, select, textarea")).forEach(el=>{ if(el.type==="checkbox") el.checked=false; else el.value=""; });
+  byId("editingId").value=""; byId("wrapOutroEnc").style.display="none"; byId("wrapMotivo").style.display="none";
+  byId("btnSubmit").textContent="Adicionar paciente";
+  byId("listaArquivos").textContent="(nenhum arquivo selecionado)";
+  clearErrs();
+}
+
+function editPatient(id){
+  const p = DB.find(r => r.id === id); if(!p) return;
+  byId("nome").value=p.nome; byId("status").value=p.status; byId("estudo").value=p.estudo; byId("data").value=p.data;
+
+  const fixed = ["Dr. Milton","Dr. Hélio","Dr. Thiago","ALTY","Outro"];
+  if(fixed.includes(p.encaminhador)){
+    byId("encaminhador").value=p.encaminhador; byId("wrapOutroEnc").style.display = (p.encaminhador==="Outro")?"block":"none";
+    if(p.encaminhador==="Outro") byId("outroEncaminhador").value="";
+  } else { byId("encaminhador").value="Outro"; byId("wrapOutroEnc").style.display="block"; byId("outroEncaminhador").value=p.encaminhador; }
+
+  byId("tcleAgendado").value=p.tcleAgendado||"Não";
+  byId("tcleAssinado").value=p.tcleAssinado||"Não";
+  byId("dataAssinatura").value=p.dataAssinatura||"";
+  byId("elegivel").value=p.elegivel||"";
+  byId("wrapMotivo").style.display=(p.elegivel==="Não")?"block":"none";
+  byId("motivoNaoElegivel").value=p.motivoNaoElegivel||"";
+
+  byId("editingId").value=p.id; byId("btnSubmit").textContent="Salvar alterações";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+async function deletePatient(id){
+  if(!confirm("Remover este paciente? Esta ação não pode ser desfeita.")) return;
+  const result = await apiDeletePaciente(id);
+  if(result){
+    showToast("Paciente removido com sucesso");
+    await loadPacientes();
+    refreshUI();
+  }
+}
+
+/* ======= INDICADORES ======= */
+function computeIndicators(list){
+  const inseridos = list.length;
+  const elegiveis = list.filter(r=>r.elegivel==="Sim").length;
+  const naoElegiveis = list.filter(r=>r.elegivel==="Não").length;
+  const tcle = list.filter(r=>r.tcleAssinado==="Sim").length;
+
+  const enc = {"Dr. Milton":0,"Dr. Hélio":0,"Dr. Thiago":0,"ALTY":0,"Outros":0};
+  list.forEach(r=>{ if(enc.hasOwnProperty(r.encaminhador)) enc[r.encaminhador]++; else enc["Outros"]++; });
+
+  const porEstudo = {};
+  list.filter(r=>r.elegivel==="Sim").forEach(r=>{
+    porEstudo[r.estudo] = (porEstudo[r.estudo]||0)+1;
+  });
+
+  return { inseridos, elegiveis, naoElegiveis, tcle, enc, porEstudo };
+}
+
+function updateKPIs(){
+  const list = dataset();
+  const k = computeIndicators(list);
+  byId("kpiInseridos").textContent = k.inseridos;
+  byId("kpiElegiveis").textContent = k.elegiveis;
+  byId("kpiNaoElegiveis").textContent = k.naoElegiveis;
+  byId("kpiTCLE").textContent = k.tcle;
+  byId("kpiEncaminhador").textContent =
+    `Dr. Milton: ${k.enc["Dr. Milton"]} | Dr. Hélio: ${k.enc["Dr. Hélio"]} | Dr. Thiago: ${k.enc["Dr. Thiago"]} | ALTY: ${k.enc["ALTY"]} | Outros: ${k.enc["Outros"]}`;
+  const linhas = Object.entries(k.porEstudo).map(([e,v])=>`${e}: ${v}`);
+  byId("kpiEstudosElegiveis").textContent = linhas.length ? linhas.join(" | ") : "(sem registros elegíveis no período)";
+}
+
+/* ======= EXPORTS ======= */
+function indicatorsSnapshot(){
+  const sel = parseMonth(byId("monthFilter").value);
+  const referencia = sel ? `${String(sel.m).padStart(2,'0')}/${sel.y}` : "Todos os meses";
+  const list = dataset();
+  const k = computeIndicators(list);
+  return {
+    referencia, gerado_em: new Date().toISOString(),
+    inseridos: k.inseridos, elegiveis: k.elegiveis, nao_elegiveis: k.naoElegiveis, tcle_assinados: k.tcle,
+    encaminhadores: k.enc, elegiveis_por_estudo: k.porEstudo
+  };
+}
+function exportIndicatorsJSON(){
+  const snap = indicatorsSnapshot();
+  const blob = new Blob([JSON.stringify(snap, null, 2)], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `indicadores_${snap.referencia.replace(/\//g,'-')}.json`; document.body.appendChild(a); a.click(); a.remove();
+}
+function exportIndicatorsCSV(){
+  const s = indicatorsSnapshot();
+  let csv = "";
+  csv += `Referência,${s.referencia}\n`;
+  csv += `Gerado em,${new Date().toLocaleString()}\n\n`;
+  csv += "Indicador,Valor\n";
+  csv += `Inseridos,${s.inseridos}\nElegíveis,${s.elegiveis}\nNão elegíveis,${s.nao_elegiveis}\nTCLE assinados,${s.tcle_assinados}\n\n`;
+  csv += "Encaminhadores,Quantidade\n";
+  for (const [k,v] of Object.entries(s.encaminhadores)) csv += `${k},${v}\n`;
+  csv += "\nElegíveis por estudo,Quantidade\n";
+  if(Object.keys(s.elegiveis_por_estudo).length===0) csv += "Sem registros,0\n";
+  else for (const [est,qtd] of Object.entries(s.elegiveis_por_estudo)) csv += `${est},${qtd}\n`;
+  const BOM = "\uFEFF";
+  const blob = new Blob([BOM + csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`indicadores_${s.referencia.replace(/\//g,'-')}.csv`; document.body.appendChild(a); a.click(); a.remove();
+}
+async function exportIndicatorsPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:"pt", format:"a4"});
+  const s = indicatorsSnapshot();
+  let y = 40;
+  doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text(`IEP São Lucas — Indicadores de Recrutamento & Screening`, 40, y); y += 22;
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  doc.text(`Referência: ${s.referencia}`, 40, y); y += 16;
+  doc.text(`Gerado em: ${new Date().toLocaleString()}`, 40, y); y += 24;
+  doc.setFont("helvetica","bold"); doc.text("Resumo", 40, y); y += 16;
+  doc.setFont("helvetica","normal");
+  doc.text(`• Inseridos: ${s.inseridos}`, 40, y); y += 14;
+  doc.text(`• Elegíveis: ${s.elegiveis}`, 40, y); y += 14;
+  doc.text(`• Não elegíveis: ${s.nao_elegiveis}`, 40, y); y += 14;
+  doc.text(`• TCLE assinados: ${s.tcle_assinados}`, 40, y); y += 22;
+
+  doc.setFont("helvetica","bold"); doc.text("Encaminhadores", 40, y); y += 16;
+  doc.setFont("helvetica","normal");
+  for (const [kEnc,v] of Object.entries(s.encaminhadores)) { doc.text(`• ${kEnc}: ${v}`, 40, y); y += 14; }
+  y += 16;
+
+  doc.setFont("helvetica","bold"); doc.text("Elegíveis por estudo", 40, y); y += 16;
+  doc.setFont("helvetica","normal");
+  if (Object.keys(s.elegiveis_por_estudo).length === 0) { doc.text("• Sem registros", 40, y); }
+  else { for (const [est,qtd] of Object.entries(s.elegiveis_por_estudo)) { doc.text(`• ${est}: ${qtd}`, 40, y); y += 14; } }
+
+  doc.save(`indicadores_${s.referencia.replace(/\//g,'-')}.pdf`);
+}
+
+/* ======= TABELA & GRÁFICO ======= */
+function renderTable(){
+  const tbody = byId("tableBody");
+  const list = dataset();
+  tbody.innerHTML="";
+  list.forEach(r=>{
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${esc(r.nome)}</td>
+        <td>${esc(r.status)}</td>
+        <td>${esc(r.estudo)}</td>
+        <td>${esc(r.encaminhador)}</td>
+        <td>${esc(r.elegivel||"-")}</td>
+        <td>${esc(r.motivoNaoElegivel||"-")}</td>
+        <td>${esc(r.data)}</td>
+        <td>${r.tcleAssinado==="Sim" ? '<span class="mono" style="color:#7CFC90">Sim</span>' : '<span class="mono" style="color:#bbb">Não</span>'}</td>
+        <td class="nowrap">
+          <button class="btn" onclick="editPatient('${r.id}')">✏️</button>
+          <button class="btn btn-ghost" onclick="deletePatient('${r.id}')">🗑️</button>
+        </td>
+      </tr>
+    `);
+  });
+  byId("emptyMsg").textContent = list.length ? "" : "Sem pacientes para esta visão.";
+}
+function updateChart(){
+  const list = dataset();
+  const statuses = {};
+  list.forEach(p => { statuses[p.status] = (statuses[p.status] || 0) + 1; });
+  const ctx = byId("statusChart").getContext("2d");
+  if(CHART) CHART.destroy();
+  CHART = new Chart(ctx, {
+    type:"pie",
+    data:{ labels:Object.keys(statuses), datasets:[{ data:Object.values(statuses), backgroundColor:["#1E90FF","#0055A4","#28a745","#FFC107","#6c757d","#e74c3c","#8e44ad"] }] }
+  });
+}
+
+/* ======= VISÃO ======= */
+function refreshUI(){ renderTable(); updateKPIs(); updateChart(); }
+function clearMonth(){ byId("monthFilter").value=""; refreshUI(); }
+
+/* ======= CARREGAMENTO DE DADOS ======= */
+async function loadPacientes(){
+  DB = await apiGetPacientes();
+}
+
+/* ======= INIT ======= */
+async function init(){
+  await loadLogo();
+  await loadPacientes();
+  showToast("Sistema carregado com sucesso!");
+  refreshUI();
+}
+init();
+</script>
+</body>
+</html>

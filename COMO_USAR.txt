@@ -1,0 +1,192 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║         🏥 SISTEMA DE RECRUTAMENTO IEP SÃO LUCAS - v8.0 WEB             ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+📍 LOCALIZAÇÃO DO PROJETO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/Users/fefnnascimen/Downloads/iep-recrutamento-web/
+
+
+🚀 COMO INICIAR O SISTEMA (3 PASSOS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1️⃣  Abra o Terminal e navegue até a pasta:
+  
+      cd /Users/fefnnascimen/Downloads/iep-recrutamento-web
+      
+  
+  2️⃣  Instale as dependências (APENAS NA PRIMEIRA VEZ):
+  
+      npm install
+      
+      ⏳ Aguarde alguns minutos...
+      
+  
+  3️⃣  Inicie o servidor:
+  
+      npm start
+      
+      Você verá:
+      ✅ Conectado ao banco de dados SQLite
+      ✅ Tabela "pacientes" pronta
+      ✅ Tabela "documentos" pronta
+      🚀 Servidor rodando em http://localhost:3000
+
+
+📱 ACESSAR O SISTEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Abra seu navegador (Chrome, Firefox, Safari) e acesse:
+  
+  👉  http://localhost:3000
+  
+  
+  Para acessar de outro computador na mesma rede:
+  
+  1. Descubra seu IP: ifconfig | grep "inet "
+  2. No outro computador: http://SEU_IP:3000
+
+
+✨ NOVIDADES IMPLEMENTADAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ 1. UPLOAD DE ARQUIVOS PDF E WORD
+      • Campo novo no formulário: "Anexar documentos"
+      • Aceita múltiplos arquivos simultaneamente
+      • Formatos: .pdf, .doc, .docx
+      • Arquivos salvos na pasta "uploads/"
+      
+  ✅ 2. SERVIDOR WEB PROFISSIONAL
+      • Node.js + Express
+      • API REST completa
+      • Suporta múltiplos usuários ao mesmo tempo
+      
+  ✅ 3. BANCO DE DADOS REAL
+      • SQLite (arquivo: iep_recrutamento.db)
+      • Dados persistentes (não se perdem)
+      • Fácil fazer backup (copiar arquivo .db)
+      
+  ✅ 4. INTEGRAÇÃO COMPLETA
+      • Frontend atualizado para usar API
+      • Upload real de arquivos
+      • Mensagens de erro claras
+
+
+📋 USO DO SISTEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. CADASTRAR PACIENTE COM DOCUMENTOS
+     • Preencha os campos do formulário
+     • Clique em "Anexar documentos"
+     • Selecione arquivos PDF ou Word do seu computador
+     • Clique em "Adicionar paciente"
+     ✅ Paciente e documentos salvos no banco!
+     
+  2. VISUALIZAR INDICADORES
+     • KPIs atualizados automaticamente
+     • Use filtro de mês para períodos específicos
+     • Gráficos interativos
+     
+  3. EXPORTAR RELATÓRIOS
+     • CSV - Para Excel/planilhas
+     • JSON - Para outros sistemas
+     • PDF - Para impressão
+     
+  4. EDITAR/EXCLUIR PACIENTES
+     • Clique no botão ✏️ para editar
+     • Clique no botão 🗑️ para excluir
+
+
+🛑 PARAR O SERVIDOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  No terminal onde o servidor está rodando:
+  
+  Pressione: Ctrl + C
+  
+
+💾 FAZER BACKUP DOS DADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Copie estes arquivos/pastas para um local seguro:
+  
+  • iep_recrutamento.db  (banco de dados)
+  • uploads/             (documentos anexados)
+
+
+📂 ESTRUTURA DE ARQUIVOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  iep-recrutamento-web/
+  ├── 📄 server.js              ← Servidor Express
+  ├── 📄 database.js            ← Configuração do banco
+  ├── 📄 package.json           ← Dependências Node.js
+  ├── 📁 public/
+  │   └── 📄 index.html         ← Interface do usuário
+  ├── 📁 uploads/               ← Arquivos enviados (PDF/Word)
+  ├── 💾 iep_recrutamento.db    ← Banco de dados SQLite
+  ├── 📖 README.md              ← Documentação completa
+  ├── 📖 INICIO_RAPIDO.md       ← Guia rápido
+  ├── 📖 ALTERACOES.md          ← Resumo das alterações
+  └── 📖 COMO_USAR.txt          ← Este arquivo
+
+
+❓ PROBLEMAS COMUNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  🔴 "Porta 3000 já está em uso"
+     Solução: PORT=3001 npm start
+     
+  🔴 "npm: command not found"
+     Solução: Instale Node.js em https://nodejs.org
+     
+  🔴 Esqueceu onde está o projeto?
+     Solução: cd /Users/fefnnascimen/Downloads/iep-recrutamento-web
+     
+  🔴 Página não carrega
+     Solução: Verifique se o servidor está rodando no terminal
+
+
+📚 DOCUMENTAÇÃO ADICIONAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  📖 README.md          - Documentação técnica completa
+  📖 INICIO_RAPIDO.md   - Guia de início rápido
+  📖 ALTERACOES.md      - Lista detalhada das mudanças
+
+
+✅ CHECKLIST DE FUNCIONAMENTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  □ Node.js instalado (node --version)
+  □ Dependências instaladas (npm install)
+  □ Servidor iniciado (npm start)
+  □ Página abre no navegador (http://localhost:3000)
+  □ Consegue cadastrar paciente
+  □ Consegue anexar arquivos PDF/Word
+  □ Dados aparecem na tabela
+  □ KPIs atualizam automaticamente
+
+
+🎯 TUDO PRONTO!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Seu sistema está completo e funcional! 🎉
+  
+  Todas as 4 tarefas solicitadas foram implementadas:
+  
+  ✅ 1. Input de upload de arquivos (PDF e Word)
+  ✅ 2. Servidor web para hospedar o site
+  ✅ 3. Banco de dados web para armazenar dados
+  ✅ 4. JavaScript ajustado para usar o banco web
+  
+  
+  Desenvolvido para: IEP São Lucas
+  Versão: 8.0 Web Edition
+  Data: Novembro 2025
+
+
+═════════════════════════════════════════════════════════════════════════════
+

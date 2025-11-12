@@ -1,0 +1,260 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║              🚀 DEPLOY NO RENDER - GUIA SUPER SIMPLES                   ║
+║                         (Gratuito para Sempre)                           ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+
+📦 PASSO 1: COLOCAR CÓDIGO NO GITHUB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Vá em: https://github.com/new
+  
+  2. Nome: iep-recrutamento-web
+  
+  3. MARQUE: ☑️ Private (importante!)
+  
+  4. Clique "Create repository"
+  
+  5. No seu terminal:
+  
+     cd /Users/fefnnascimen/Downloads/iep-recrutamento-web
+     
+     git init
+     git add .
+     git commit -m "Deploy inicial"
+     
+     # Substitua SEU_USUARIO pelo seu usuário do GitHub:
+     git remote add origin https://github.com/SEU_USUARIO/iep-recrutamento-web.git
+     
+     git branch -M main
+     git push -u origin main
+     
+  ✅ Código no GitHub!
+
+
+🌐 PASSO 2: CRIAR CONTA NO RENDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Acesse: https://render.com
+  
+  2. Clique "Get Started"
+  
+  3. Escolha: "Sign up with GitHub"
+  
+  4. Autorize o Render
+  
+  ✅ Conta criada!
+
+
+⚙️  PASSO 3: CONFIGURAR WEB SERVICE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. No Render, clique "New +" → "Web Service"
+  
+  2. Selecione seu repositório: iep-recrutamento-web
+  
+  3. Clique "Connect"
+  
+  4. Preencha:
+     
+     Name:          iep-recrutamento
+     Region:        Frankfurt (Europe West)
+     Branch:        main
+     Runtime:       Node
+     Build:         npm install
+     Start:         npm start
+     Instance:      Free ☑️
+     
+  ✅ Configurado!
+
+
+🔐 PASSO 4: ADICIONAR SENHA (IMPORTANTE!)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Role até "Environment Variables"
+  
+  Clique "Add Environment Variable" 3 vezes:
+  
+  
+  ┌─────────────────────────────────────────┐
+  │ Key:   ADMIN_PASSWORD                   │
+  │ Value: MinhaS3nhaF0rte!2025            │ ← TROQUE AQUI!
+  └─────────────────────────────────────────┘
+  
+  ┌─────────────────────────────────────────┐
+  │ Key:   PORT                             │
+  │ Value: 10000                            │
+  └─────────────────────────────────────────┘
+  
+  ┌─────────────────────────────────────────┐
+  │ Key:   NODE_VERSION                     │
+  │ Value: 18                               │
+  └─────────────────────────────────────────┘
+  
+  
+  ⚠️  ANOTE SUA SENHA! Você precisará dela depois!
+  
+  ✅ Senha configurada!
+
+
+💾 PASSO 5: ADICIONAR DISCO (PARA SALVAR DADOS!)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Role até "Disk"
+  
+  Clique "Add Disk"
+  
+  Preencha EXATAMENTE assim:
+  
+  
+  ┌─────────────────────────────────────────┐
+  │ Name:       data                        │
+  │ Mount Path: /app/data                   │
+  │ Size:       1 GB                        │
+  └─────────────────────────────────────────┘
+  
+  
+  Clique "Save"
+  
+  ⚠️  SEM ISSO, seus dados serão perdidos!
+  
+  ✅ Disco configurado!
+
+
+🚀 PASSO 6: DEPLOY!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Revise tudo
+  
+  2. Clique "Create Web Service" (botão azul no final)
+  
+  3. Aguarde 5-10 minutos ⏳
+  
+  4. Você verá:
+  
+     ==> Building...
+     ==> Installing dependencies...
+     ==> Starting server...
+     ==> Your service is live! 🎉
+     
+  
+  5. Sua URL será tipo:
+  
+     https://iep-recrutamento.onrender.com
+     
+  
+  ✅ NO AR!
+
+
+🧪 PASSO 7: TESTAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Clique na URL gerada
+  
+  2. Aguarde 30-60 segundos (primeira vez)
+  
+  3. Sistema carrega! 🎉
+  
+  4. Tente ver pacientes → ✅ Funciona sem senha
+  
+  5. Clique "Adicionar paciente"
+  
+  6. Aparece: "🔐 Digite a senha de administrador"
+  
+  7. Digite a senha que você configurou
+  
+  8. Cadastre um paciente de teste
+  
+  9. ✅ FUNCIONA!
+
+
+═════════════════════════════════════════════════════════════════════════════
+
+                            🎉 PRONTO!
+
+        Seu sistema está no ar, gratuito e funcionando!
+
+═════════════════════════════════════════════════════════════════════════════
+
+
+📱 COMO USAR AGORA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ QUALQUER PESSOA pode:
+     → Ver pacientes
+     → Ver gráficos
+     → Exportar relatórios
+     
+  🔒 SÓ VOCÊ (com senha) pode:
+     → Adicionar pacientes
+     → Editar
+     → Deletar
+     → Upload de arquivos
+
+
+🔑 SENHAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Local (seu computador):
+  └─ Senha: iep2025@seguro
+  └─ Arquivo: .env
+  
+  Web (Render):
+  └─ Senha: A que você configurou
+  └─ Local: Variáveis do Render
+
+
+💡 DICAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  • Primeira vez que abre o site demora ~30s (normal!)
+  
+  • Depois de 15min parado, "dorme" (demora ~30s para acordar)
+  
+  • Compartilhe a URL com sua equipe
+  
+  • Guarde a senha só para você
+  
+  • Faça backup do banco mensalmente
+
+
+🐛 PROBLEMAS?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Build falhou?
+  └─ Veja logs no Render
+  └─ Confirme que package.json está OK
+  
+  Senha não funciona?
+  └─ Vá em Settings → Environment
+  └─ Veja o valor de ADMIN_PASSWORD
+  └─ Redeploy se precisar mudar
+  
+  Dados somem?
+  └─ Confirme que adicionou o disco!
+  └─ Mount Path deve ser: /app/data
+  
+  Site lento?
+  └─ Normal no plano free
+  └─ Primeira carga demora mais
+
+
+📞 AJUDA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Guia completo:      RENDER_DEPLOY.md
+  Checklist:          RENDER_CHECKLIST.md
+  Docs do Render:     https://render.com/docs
+
+
+═════════════════════════════════════════════════════════════════════════════
+
+Desenvolvido para: IEP São Lucas
+Plataforma: Render.com (Free Forever!)
+Versão: 8.0 Web Edition
+Data: Novembro 2025
+
+═════════════════════════════════════════════════════════════════════════════
+

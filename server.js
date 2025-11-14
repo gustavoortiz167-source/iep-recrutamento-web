@@ -35,6 +35,8 @@ async function runQuery(sql, params = []) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'iep2025@seguro';
+const ADMIN_LOGIN = process.env.ADMIN_LOGIN || 'gustavoortiz167@gmail.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'gustavoortiz167@gmail.com';
 
 // Middleware
 app.use(cors());
@@ -488,18 +490,18 @@ app.post('/api/auth/admin-login', (req,res)=>{
   (async()=>{
     let admin;
     if(usePostgres){
-      const r = await db.pool.query(`SELECT * FROM usuarios WHERE role='admin' LIMIT 1`);
+      const r = await db.pool.query(`SELECT * FROM usuarios WHERE login=$1 LIMIT 1`, [ADMIN_LOGIN]);
       admin = r.rows[0];
     } else {
-      admin = await db.get(`SELECT * FROM usuarios WHERE role='admin' LIMIT 1`, []);
+      admin = await db.get(`SELECT * FROM usuarios WHERE login = ? LIMIT 1`, [ADMIN_LOGIN]);
     }
     if(!admin){
       if(usePostgres){
-        const r2 = await db.pool.query(`INSERT INTO usuarios (nome,login,senha_hash,role,aprovado) VALUES ($1,$2,$3,'admin',TRUE) RETURNING id`, ['Administrador','admin',hashPassword(senha)]);
+        const r2 = await db.pool.query(`INSERT INTO usuarios (nome,email,login,senha_hash,role,aprovado) VALUES ($1,$2,$3,$4,'admin',TRUE) RETURNING id`, ['Administrador', ADMIN_EMAIL, ADMIN_LOGIN, hashPassword(senha)]);
         admin = { id: r2.rows[0].id, nome:'Administrador', role:'admin'};
       } else {
-        await new Promise((resolve,reject)=>{ db.run(`INSERT INTO usuarios (nome,login,senha_hash,role,aprovado) VALUES (?,?,?,?,1)`, ['Administrador','admin',hashPassword(senha),'admin'], (err)=>{ if(err) reject(err); else resolve(); }); });
-        admin = await db.get(`SELECT * FROM usuarios WHERE role='admin' LIMIT 1`, []);
+        await new Promise((resolve,reject)=>{ db.run(`INSERT INTO usuarios (nome,email,login,senha_hash,role,aprovado) VALUES (?,?,?,?,?,1)`, ['Administrador', ADMIN_EMAIL, ADMIN_LOGIN, hashPassword(senha),'admin'], (err)=>{ if(err) reject(err); else resolve(); }); });
+        admin = await db.get(`SELECT * FROM usuarios WHERE login = ? LIMIT 1`, [ADMIN_LOGIN]);
       }
     }
     const token = await createSession(admin.id);

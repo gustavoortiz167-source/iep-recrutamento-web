@@ -60,7 +60,7 @@
   <div class="grow"></div>
   <input id="logoInput" type="file" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
   <button class="btn btn-ghost" onclick="byId('logoInput').click()">Trocar logo</button>
-  <button class="btn" id="btnAuth" onclick="showAuthModal()">Entrar</button>
+  <button class="btn" id="btnAuth" onclick="navigateLogin()">Entrar</button>
   <span id="userBadge" class="mono" style="margin-left:8px; color:#bbb"></span>
 </header>
 
@@ -681,19 +681,14 @@ init();
 </script>
 <script>
 let AUTH_TOKEN = localStorage.getItem('auth_token')||'';
+if(!AUTH_TOKEN){ window.location.href = '/login.html'; }
 let CURRENT_USER = null;
 async function ensureAuth(){
-  if(!AUTH_TOKEN){
-    await showAuthModal();
-  } else {
-    try{
-      const res = await fetch(`${API_BASE}/auth/me`, { headers: getAuthHeaders() });
-      if(!res.ok){
-        AUTH_TOKEN=''; localStorage.removeItem('auth_token');
-        await showAuthModal();
-      } else { CURRENT_USER = await res.json(); }
-    }catch(e){ AUTH_TOKEN=''; localStorage.removeItem('auth_token'); await showAuthModal(); }
-  }
+  if(!AUTH_TOKEN){ window.location.href='/login.html'; return; }
+  try{
+    const res = await fetch(`${API_BASE}/auth/me`, { headers: getAuthHeaders() });
+    if(res.ok){ CURRENT_USER = await res.json(); }
+  }catch(e){}
   updateAuthUI();
 }
 
@@ -748,11 +743,13 @@ function updateAuthUI(){
     btn.textContent = 'Sair'; btn.onclick = logout;
   } else {
     badge.textContent = '';
-    btn.textContent = 'Entrar'; btn.onclick = showAuthModal;
+    btn.textContent = 'Entrar'; btn.onclick = navigateLogin;
   }
 }
 
-function logout(){ AUTH_TOKEN=''; CURRENT_USER=null; localStorage.removeItem('auth_token'); updateAuthUI(); showAuthModal(); }
+function logout(){ AUTH_TOKEN=''; CURRENT_USER=null; localStorage.removeItem('auth_token'); updateAuthUI(); navigateLogin(); }
+
+function navigateLogin(){ window.location.href = '/login.html'; }
 
 async function loadAgendamentos(){
   try{ const res = await fetch(`${API_BASE}/agendamentos`, { headers: getAuthHeaders() }); if(!res.ok) return []; AGENDAMENTOS = await res.json(); renderAgenda(); return AGENDAMENTOS; }catch(e){ return []; }

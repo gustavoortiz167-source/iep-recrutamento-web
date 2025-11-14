@@ -58,8 +58,7 @@
   <img id="logoImg" alt="IEP São Lucas (logo)">
   <h1>Recrutamento & Screening</h1>
   <div class="grow"></div>
-  <input id="logoInput" type="file" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
-  <button class="btn btn-ghost" onclick="byId('logoInput').click()">Trocar logo</button>
+  
   <button class="btn" id="btnAuth" onclick="promptEditPassword()">Senha de edição</button>
   <span id="userBadge" class="mono" style="margin-left:8px; color:#bbb"></span>
 </header>
@@ -123,6 +122,7 @@
         <input id="monthFilter" type="month" onchange="refreshUI()"/>
       </div>
       <button class="btn btn-ghost" onclick="clearMonth()">Limpar filtro</button>
+      <button class="btn" onclick="forceLoadPacientes()">Visualizar pacientes</button>
     </div>
   </div>
 
@@ -170,6 +170,10 @@
   <div class="section" id="agendaSection">
     <h2>Agenda</h2>
     <div class="body">
+      <div class="row" style="justify-content:flex-end; margin-bottom:8px">
+        <button class="btn" onclick="forceLoadPacientes()">Visualizar pacientes</button>
+        <span class="muted" id="pacCount" style="margin-left:10px"></span>
+      </div>
       <div class="grid g4">
         <div class="field"><span class="muted">Mês</span><input id="agMonth" type="month" onchange="renderCalendar()"/></div>
         <div class="field"><span class="muted">Data</span><input id="agData" type="date"/></div>
@@ -364,13 +368,8 @@ async function handleLogoUpload(ev){
 }
 
 async function loadLogo(){
-  try{
-    const res = await fetch(`${API_BASE}/configuracoes/logo`, { headers: getAuthHeaders() });
-    const data = await res.json();
-    byId("logoImg").src = data.logo || "https://upload.wikimedia.org/wikipedia/commons/3/3f/Transparent_placeholder.png";
-  }catch(e){
-    byId("logoImg").src = "https://upload.wikimedia.org/wikipedia/commons/3/3f/Transparent_placeholder.png";
-  }
+  const svg = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='520' height='120'><rect fill='white' width='100%' height='100%'/><text x='20' y='60' font-family='Segoe UI, Arial' font-size='36' fill='#3b82f6'>IEP SÃO LUCAS</text><text x='22' y='90' font-family='Segoe UI, Arial' font-size='16' fill='#334155'>Instituto de Ensino e Pesquisas</text></svg>`);
+  byId("logoImg").src = `data:image/svg+xml;utf8,${svg}`;
 }
 
 /* ======= DATASET ======= */
@@ -857,6 +856,7 @@ function getPatientName(id){ const p = (DB||[]).find(x=>x.id===id); return p ? p
 function renderPatientSelect(){
   const sel = byId('agPacienteSel'); if(!sel) return; sel.innerHTML = '<option value="">Selecione…</option>' + (DB||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join('');
 }
+function forceLoadPacientes(){ loadPacientes().then(()=>{ refreshUI(); showToast('Pacientes atualizados'); byId('pacCount').textContent = DB.length ? `Total de pacientes: ${DB.length}` : 'Nenhum paciente cadastrado'; }); }
 
 async function loadUsuarios(){
   try{

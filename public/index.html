@@ -207,10 +207,6 @@
   <div class="section">
     <h2>Pacientes</h2>
     <div class="body">
-      <div class="row" style="justify-content:flex-end; margin-bottom:8px">
-        <button class="btn" onclick="forceLoadPacientes()">Visualizar pacientes</button>
-        <span class="muted" id="pacCountTable" style="margin-left:10px"></span>
-      </div>
       <table>
         <thead>
           <tr>
@@ -862,9 +858,6 @@ function renderPatientSelect(){
   const sel = byId('agPacienteSel'); if(!sel) return; sel.innerHTML = '<option value="">Selecione…</option>' + (DB||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join('');
 }
 function forceLoadPacientes(){ loadPacientes().then(()=>{ refreshUI(); showToast('Pacientes atualizados'); byId('pacCount').textContent = DB.length ? `Total de pacientes: ${DB.length}` : 'Nenhum paciente cadastrado'; }); }
-const updCounts = ()=>{ const n = DB.length; const txt = n ? `Total de pacientes: ${n}` : 'Nenhum paciente cadastrado'; const a = byId('pacCount'); if(a) a.textContent = txt; const b = byId('pacCountTable'); if(b) b.textContent = txt; };
-const oldLoadPacientes = loadPacientes;
-loadPacientes = async function(){ await oldLoadPacientes(); updCounts(); };
 
 async function loadUsuarios(){
   try{

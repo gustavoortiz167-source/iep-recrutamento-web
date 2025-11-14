@@ -259,7 +259,9 @@ async function getAdminPassword(){
 // Função auxiliar para adicionar senha no cabeçalho
 function getAuthHeaders(){
   const h = {};
+  const ep = localStorage.getItem('edit_password')||'';
   if(AUTH_TOKEN) h['Authorization'] = 'Bearer ' + AUTH_TOKEN;
+  if(ep) h['X-Edit-Password'] = ep;
   return h;
 }
 
@@ -289,7 +291,7 @@ async function apiCreatePaciente(data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(!res.ok){ const errData = await res.json().catch(()=>({})); showToast(errData.error || 'Erro ao criar paciente', true); return null; }
+    if(!res.ok){ const errData = await res.json().catch(()=>({})); if(res.status===403){ showToast(errData.error || 'Senha de edição incorreta', true); promptEditPassword(); return null; } showToast(errData.error || 'Erro ao criar paciente', true); return null; }
     return await res.json();
   }catch(e){
     console.error('Erro ao criar paciente:', e);
@@ -729,6 +731,7 @@ async function init(){
   await ensureAuth();
   await loadLogo();
   await loadPacientes();
+  if(!localStorage.getItem('edit_password')){ localStorage.setItem('edit_password','@iep2025'); }
   forceLoadPacientes();
   await loadAgendamentos();
   showUpcomingReminders();

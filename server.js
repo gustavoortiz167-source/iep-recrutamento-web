@@ -113,7 +113,18 @@ async function requireUser(req,res,next){
   next();
 }
 
-function requireEdit(req,res,next){ next(); }
+function requireEdit(req,res,next){
+  const raw = req.headers['x-edit-password'] || req.body.editPassword || req.query.editPassword || '';
+  const pass = String(raw).trim().toLowerCase();
+  const target = String(EDIT_PASSWORD).trim().toLowerCase();
+  if(!pass){
+    return res.status(403).json({error:'Senha de edição requerida'});
+  }
+  if(pass !== target){
+    return res.status(403).json({error:'Senha de edição incorreta'});
+  }
+  next();
+}
 
 function hashPassword(s){
   const salt = process.env.AUTH_SALT || 'iep_salt_2025';

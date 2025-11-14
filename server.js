@@ -208,8 +208,9 @@ app.post('/api/pacientes', requireEdit, upload.array('documentos', 10), async (r
 
     const allowedStatuses = ['Triagem','Elegível','Randomizado','Não elegível'];
     const allowedStudies = ['Tropion - 8','M-18','Evoke-4','Codebrak','Benito','KER-50','M-20','Symphony'];
-    if(!allowedStatuses.includes(status)) return res.status(400).json({error:'Status inválido'});
-    if(!allowedStudies.includes(estudo)) return res.status(400).json({error:'Estudo inválido'});
+    const finalStatus = allowedStatuses.includes(status) ? status : 'Triagem';
+    const finalEstudo = allowedStudies.includes(estudo) ? estudo : 'Tropion - 8';
+    const finalData = data && String(data).trim() ? data : new Date().toISOString().slice(0,10);
 
     const pacienteId = id || 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -222,7 +223,7 @@ app.post('/api/pacientes', requireEdit, upload.array('documentos', 10), async (r
     `;
 
     await runQuery(sql, [
-      pacienteId, nome, status, estudo, data, encaminhador,
+      pacienteId, nome, finalStatus, finalEstudo, finalData, encaminhador,
       tcleAgendado, tcleAssinado, dataAssinatura,
       elegivel, motivoNaoElegivel, comentarios
     ]);

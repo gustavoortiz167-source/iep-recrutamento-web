@@ -728,7 +728,6 @@ async function init(){
   await ensureAuth();
   await loadLogo();
   await loadPacientes();
-  forceLoadPacientes();
   await loadAgendamentos();
   showUpcomingReminders();
   showToast("Sistema carregado com sucesso!");

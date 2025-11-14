@@ -37,7 +37,7 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'iep2025@seguro';
 const ADMIN_LOGIN = process.env.ADMIN_LOGIN || 'gustavoortiz167@gmail.com';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'gustavoortiz167@gmail.com';
-const EDIT_PASSWORD = process.env.EDIT_PASSWORD || '@iep2025';
+const EDIT_PASSWORD = process.env.EDIT_PASSWORD || '@IEP2025';
 
 // Middleware
 app.use(cors());

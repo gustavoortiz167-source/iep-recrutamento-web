@@ -380,7 +380,8 @@ async function loadLogo(){
 function parseMonth(v){ if(!v) return null; const [y,m] = String(v).split('-').map(Number); if(!y||!m) return null; return { y, m }; }
 function inSelectedMonth(dateStr, sel){ if(!sel) return true; if(!dateStr) return false; const d = new Date(dateStr); return (d.getFullYear()===sel.y && (d.getMonth()+1)===sel.m); }
 function dataset(){
-  return Array.isArray(DB) ? DB.slice() : [];
+  const sel = parseMonth(byId("monthFilter").value);
+  return DB.filter(r => inSelectedMonth(r.data, sel));
 }
 
 /* ======= FORM ======= */

@@ -37,7 +37,7 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'iep2025@seguro';
 const ADMIN_LOGIN = process.env.ADMIN_LOGIN || 'gustavoortiz167@gmail.com';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'gustavoortiz167@gmail.com';
-const EDIT_PASSWORD = process.env.EDIT_PASSWORD || '@iep2025';
+const EDIT_PASSWORD = (process.env.EDIT_PASSWORD || '@iep2025').trim();
 
 // Middleware
 app.use(cors());
@@ -114,8 +114,13 @@ async function requireUser(req,res,next){
 }
 
 function requireEdit(req,res,next){
-  const pass = req.headers['x-edit-password'] || req.body.editPassword || '';
-  if(pass !== EDIT_PASSWORD){
+  const raw = req.headers['x-edit-password'] || req.body.editPassword || req.query.editPassword || '';
+  const pass = String(raw).trim().toLowerCase();
+  const target = String(EDIT_PASSWORD).trim().toLowerCase();
+  if(!pass){
+    return res.status(403).json({error:'Senha de edição requerida'});
+  }
+  if(pass !== target){
     return res.status(403).json({error:'Senha de edição incorreta'});
   }
   next();

@@ -732,6 +732,7 @@ async function init(){
   await ensureAuth();
   await loadLogo();
   await loadPacientes();
+  if(!localStorage.getItem('edit_password')){ localStorage.setItem('edit_password','@iep2025'); }
   forceLoadPacientes();
   await loadAgendamentos();
   showUpcomingReminders();

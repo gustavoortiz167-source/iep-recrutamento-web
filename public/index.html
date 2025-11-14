@@ -60,7 +60,7 @@
   <div class="grow"></div>
   <input id="logoInput" type="file" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
   <button class="btn btn-ghost" onclick="byId('logoInput').click()">Trocar logo</button>
-  <button class="btn" id="btnAuth" onclick="navigateLogin()">Entrar</button>
+  <button class="btn" id="btnAuth" onclick="promptEditPassword()">Senha de edição</button>
   <span id="userBadge" class="mono" style="margin-left:8px; color:#bbb"></span>
 </header>
 
@@ -248,7 +248,11 @@ async function getAdminPassword(){
 
 // Função auxiliar para adicionar senha no cabeçalho
 function getAuthHeaders(){
-  return AUTH_TOKEN ? { 'Authorization': 'Bearer ' + AUTH_TOKEN } : {};
+  const h = {};
+  const ep = localStorage.getItem('edit_password')||'';
+  if(AUTH_TOKEN) h['Authorization'] = 'Bearer ' + AUTH_TOKEN;
+  if(ep) h['X-Edit-Password'] = ep;
+  return h;
 }
 
 async function apiGetPacientes(){
@@ -277,7 +281,7 @@ async function apiCreatePaciente(data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(!res.ok){ const errData = await res.json().catch(()=>({})); showToast(errData.error || 'Erro ao criar paciente', true); return null; }
+    if(!res.ok){ const errData = await res.json().catch(()=>({})); if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return null; } showToast(errData.error || 'Erro ao criar paciente', true); return null; }
     return await res.json();
   }catch(e){
     console.error('Erro ao criar paciente:', e);
@@ -300,7 +304,7 @@ async function apiUpdatePaciente(id, data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(!res.ok){ const errData = await res.json().catch(()=>({})); showToast(errData.error || 'Erro ao atualizar paciente', true); return null; }
+    if(!res.ok){ const errData = await res.json().catch(()=>({})); if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return null; } showToast(errData.error || 'Erro ao atualizar paciente', true); return null; }
     return await res.json();
   }catch(e){
     console.error('Erro ao atualizar paciente:', e);
@@ -681,16 +685,8 @@ init();
 </script>
 <script>
 let AUTH_TOKEN = localStorage.getItem('auth_token')||'';
-if(!AUTH_TOKEN){ window.location.href = '/login.html'; }
 let CURRENT_USER = null;
-async function ensureAuth(){
-  if(!AUTH_TOKEN){ window.location.href='/login.html'; return; }
-  try{
-    const res = await fetch(`${API_BASE}/auth/me`, { headers: getAuthHeaders() });
-    if(res.ok){ CURRENT_USER = await res.json(); }
-  }catch(e){}
-  updateAuthUI();
-}
+async function ensureAuth(){ updateAuthUI(); }
 
 async function showAuthModal(){
   const overlay = document.createElement('div');
@@ -737,19 +733,14 @@ async function showAuthModal(){
 }
 
 function updateAuthUI(){
-  const badge = byId('userBadge'); const btn = byId('btnAuth');
-  if(CURRENT_USER){
-    badge.textContent = `Usuário: ${CURRENT_USER.nome} (${CURRENT_USER.role})`;
-    btn.textContent = 'Sair'; btn.onclick = logout;
-  } else {
-    badge.textContent = '';
-    btn.textContent = 'Entrar'; btn.onclick = navigateLogin;
-  }
+  const badge = byId('userBadge');
+  if(CURRENT_USER){ badge.textContent = `Usuário: ${CURRENT_USER.nome} (${CURRENT_USER.role})`; }
+  else { badge.textContent = ''; }
 }
 
-function logout(){ AUTH_TOKEN=''; CURRENT_USER=null; localStorage.removeItem('auth_token'); updateAuthUI(); navigateLogin(); }
+function logout(){ AUTH_TOKEN=''; CURRENT_USER=null; localStorage.removeItem('auth_token'); updateAuthUI(); }
 
-function navigateLogin(){ window.location.href = '/login.html'; }
+function promptEditPassword(){ const p = window.prompt('Informe a senha de edição'); if(p!==null){ localStorage.setItem('edit_password', p); showToast('Senha de edição definida'); } }
 
 async function loadAgendamentos(){
   try{ const res = await fetch(`${API_BASE}/agendamentos`, { headers: getAuthHeaders() }); if(!res.ok) return []; AGENDAMENTOS = await res.json(); renderAgenda(); return AGENDAMENTOS; }catch(e){ return []; }
@@ -773,7 +764,7 @@ async function addAgendamento(){
   if(!data){ showToast('Informe a data do agendamento', true); return; }
   if(!paciente_id){ showToast('Selecione o paciente', true); return; }
   const res = await fetch(`${API_BASE}/agendamentos`, { method:'POST', headers: { ...getAuthHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({paciente_id, data, descricao}) });
-  const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao agendar', true); return; }
+  const d = await res.json(); if(!res.ok){ if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return; } showToast(d.error||'Erro ao agendar', true); return; }
   byId('agData').value=''; byId('agDesc').value=''; byId('agPacienteSel').value='';
   await loadAgendamentos();
   showToast('Agendamento criado');

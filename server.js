@@ -37,6 +37,7 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'iep2025@seguro';
 const ADMIN_LOGIN = process.env.ADMIN_LOGIN || 'gustavoortiz167@gmail.com';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'gustavoortiz167@gmail.com';
+const EDIT_PASSWORD = process.env.EDIT_PASSWORD || '@IEP2025';
 
 // Middleware
 app.use(cors());
@@ -112,6 +113,14 @@ async function requireUser(req,res,next){
   next();
 }
 
+function requireEdit(req,res,next){
+  const pass = req.headers['x-edit-password'] || req.body.editPassword || '';
+  if(pass !== EDIT_PASSWORD){
+    return res.status(403).json({error:'Senha de edição incorreta'});
+  }
+  next();
+}
+
 function hashPassword(s){
   const salt = process.env.AUTH_SALT || 'iep_salt_2025';
   return crypto.createHash('sha256').update(s + salt).digest('hex');
@@ -163,7 +172,7 @@ async function requireAdmin(req,res,next){
 // ==================== ROTAS DA API ====================
 
 // GET /api/pacientes - Listar todos os pacientes
-app.get('/api/pacientes', requireUser, async (req, res) => {
+app.get('/api/pacientes', async (req, res) => {
   try {
     const rows = await db.all('SELECT * FROM pacientes ORDER BY data DESC');
     res.json(rows);
@@ -174,7 +183,7 @@ app.get('/api/pacientes', requireUser, async (req, res) => {
 });
 
 // GET /api/pacientes/:id - Buscar paciente por ID
-app.get('/api/pacientes/:id', requireUser, async (req, res) => {
+app.get('/api/pacientes/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const sql = convertQuery('SELECT * FROM pacientes WHERE id = ?');
@@ -195,7 +204,7 @@ app.get('/api/pacientes/:id', requireUser, async (req, res) => {
 });
 
 // POST /api/pacientes - Criar novo paciente
-app.post('/api/pacientes', requireUser, upload.array('documentos', 10), async (req, res) => {
+app.post('/api/pacientes', requireEdit, upload.array('documentos', 10), async (req, res) => {
   try {
     const {
       id, nome, status, estudo, data, encaminhador,
@@ -251,7 +260,7 @@ app.post('/api/pacientes', requireUser, upload.array('documentos', 10), async (r
 });
 
 // PUT /api/pacientes/:id - Atualizar paciente
-app.put('/api/pacientes/:id', requireUser, upload.array('documentos', 10), async (req, res) => {
+app.put('/api/pacientes/:id', requireEdit, upload.array('documentos', 10), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -307,7 +316,7 @@ app.put('/api/pacientes/:id', requireUser, upload.array('documentos', 10), async
 });
 
 // DELETE /api/pacientes/:id - Deletar paciente
-app.delete('/api/pacientes/:id', requireUser, async (req, res) => {
+app.delete('/api/pacientes/:id', requireEdit, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -340,7 +349,7 @@ app.delete('/api/pacientes/:id', requireUser, async (req, res) => {
 });
 
 // GET /api/documentos/:pacienteId - Listar documentos de um paciente
-app.get('/api/documentos/:pacienteId', requireUser, async (req, res) => {
+app.get('/api/documentos/:pacienteId', async (req, res) => {
   try {
     const { pacienteId } = req.params;
     const sql = convertQuery('SELECT * FROM documentos WHERE paciente_id = ?');
@@ -353,7 +362,7 @@ app.get('/api/documentos/:pacienteId', requireUser, async (req, res) => {
 });
 
 // DELETE /api/documentos/:id - Deletar documento
-app.delete('/api/documentos/:id', requireUser, async (req, res) => {
+app.delete('/api/documentos/:id', requireEdit, async (req, res) => {
   try {
     const { id } = req.params;
     const sql = convertQuery('SELECT caminho_arquivo FROM documentos WHERE id = ?');
@@ -397,7 +406,7 @@ app.post('/api/configuracoes/logo', requireAdmin, async (req, res) => {
 });
 
 // GET /api/configuracoes/logo - Buscar logo
-app.get('/api/configuracoes/logo', requireUser, async (req, res) => {
+app.get('/api/configuracoes/logo', async (req, res) => {
   try {
     const sql = convertQuery('SELECT valor FROM configuracoes WHERE chave = ?');
     const row = await db.get(sql, ['logo']);
@@ -533,7 +542,7 @@ app.post('/api/admin/usuarios/:id/aprovar', requireAdmin, async (req,res)=>{
 
 // ==================== AGENDAMENTOS ====================
 
-app.get('/api/agendamentos', requireUser, async (req,res)=>{
+app.get('/api/agendamentos', async (req,res)=>{
   try{
     const sql = convertQuery('SELECT * FROM agendamentos ORDER BY data ASC');
     const rows = await db.all(sql, []);
@@ -541,7 +550,7 @@ app.get('/api/agendamentos', requireUser, async (req,res)=>{
   }catch(e){ res.status(500).json({error:'Erro ao buscar agendamentos'}); }
 });
 
-app.post('/api/agendamentos', requireUser, async (req,res)=>{
+app.post('/api/agendamentos', requireEdit, async (req,res)=>{
   try{
     const {paciente_id, data, descricao} = req.body;
     if(!paciente_id) return res.status(400).json({error:'Paciente obrigatório'});
@@ -561,7 +570,7 @@ app.post('/api/agendamentos', requireUser, async (req,res)=>{
   }catch(e){ res.status(500).json({error:'Erro ao criar agendamento'}); }
 });
 
-app.delete('/api/agendamentos/:id', requireUser, async (req,res)=>{
+app.delete('/api/agendamentos/:id', requireEdit, async (req,res)=>{
   try{
     const {id} = req.params;
     await runQuery('DELETE FROM agendamentos WHERE id = ?', [id]);

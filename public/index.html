@@ -734,10 +734,6 @@ async function init(){
   showUpcomingReminders();
   showToast("Sistema carregado com sucesso!");
   refreshUI();
-  const today = new Date().toISOString().slice(0,10);
-  if(byId('status')) byId('status').value = 'Triagem';
-  if(byId('estudo')) byId('estudo').value = 'Tropion - 8';
-  if(byId('data') && !byId('data').value) byId('data').value = today;
   if(CURRENT_USER && CURRENT_USER.role==='admin'){ byId('adminSection').style.display='block'; await loadUsuarios(); }
 }
 init();

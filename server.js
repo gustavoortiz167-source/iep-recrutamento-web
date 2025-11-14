@@ -440,11 +440,22 @@ app.post('/api/auth/register', async (req,res)=>{
       ? `INSERT INTO usuarios (nome,email,login,senha_hash) VALUES ($1,$2,$3,$4) RETURNING id`
       : `INSERT INTO usuarios (nome,email,login,senha_hash) VALUES (?,?,?,?)`;
     if(usePostgres){
-      const r = await db.pool.query(sql,[nome,email||null,login,hashPassword(senha)]);
-      await notifyAdminNewUser({nome, login, email});
-      return res.status(201).json({message:'Cadastro enviado para aprovação', id:r.rows[0].id});
+      try{
+        const r = await db.pool.query(sql,[nome,email||null,login,hashPassword(senha)]);
+        await notifyAdminNewUser({nome, login, email});
+        return res.status(201).json({message:'Cadastro enviado para aprovação', id:r.rows[0].id});
+      }catch(err){
+        if(err.code==='23505') return res.status(409).json({error:'Login já cadastrado'});
+        return res.status(500).json({error:'Erro ao cadastrar'});
+      }
     } else {
-      await new Promise((resolve,reject)=>{ db.run(sql,[nome,email||null,login,hashPassword(senha)], function(err){ if(err) reject(err); else resolve(); }); });
+      await new Promise((resolve,reject)=>{ db.run(sql,[nome,email||null,login,hashPassword(senha)], function(err){
+        if(err){
+          if(String(err.message||'').includes('UNIQUE')) return reject({status:409,error:'Login já cadastrado'});
+          return reject({status:500,error:'Erro ao cadastrar'});
+        }
+        resolve();
+      }); }).catch((e)=>{ return res.status(e.status||500).json({error:e.error||'Erro ao cadastrar'}); });
       await notifyAdminNewUser({nome, login, email});
       return res.status(201).json({message:'Cadastro enviado para aprovação'});
     }

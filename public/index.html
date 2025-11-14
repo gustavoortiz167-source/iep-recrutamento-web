@@ -291,7 +291,7 @@ async function apiCreatePaciente(data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(!res.ok){ const errData = await res.json().catch(()=>({})); if(res.status===403){ showToast(errData.error || 'Senha de edição incorreta', true); promptEditPassword(); return null; } showToast(errData.error || 'Erro ao criar paciente', true); return null; }
+    if(!res.ok){ const errData = await res.json().catch(()=>({})); if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return null; } showToast(errData.error || 'Erro ao criar paciente', true); return null; }
     return await res.json();
   }catch(e){
     console.error('Erro ao criar paciente:', e);
@@ -314,7 +314,7 @@ async function apiUpdatePaciente(id, data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(!res.ok){ const errData = await res.json().catch(()=>({})); if(res.status===403){ showToast(errData.error || 'Senha de edição incorreta', true); promptEditPassword(); return null; } showToast(errData.error || 'Erro ao atualizar paciente', true); return null; }
+    if(!res.ok){ const errData = await res.json().catch(()=>({})); if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return null; } showToast(errData.error || 'Erro ao atualizar paciente', true); return null; }
     return await res.json();
   }catch(e){
     console.error('Erro ao atualizar paciente:', e);

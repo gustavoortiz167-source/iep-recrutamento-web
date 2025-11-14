@@ -132,8 +132,6 @@
     <div class="body">
       <div class="row" style="justify-content:flex-end; margin-bottom:12px">
         <button class="btn btn-ghost" onclick="exportIndicatorsCSV()">Exportar indicadores (.csv)</button>
-        <button class="btn btn-ghost" onclick="exportIndicatorsXLS()">Exportar indicadores (.xls)</button>
-        <button class="btn btn-ghost" onclick="exportIndicatorsDOC()">Exportar indicadores (Word)</button>
         <button class="btn btn-ghost" onclick="exportIndicatorsJSON()">Exportar indicadores (.json)</button>
         <button class="btn btn-ghost" onclick="exportIndicatorsPDF()">Exportar indicadores (.pdf)</button>
       </div>
@@ -583,29 +581,6 @@ function exportIndicatorsCSV(){
   const blob = new Blob([BOM + csv], {type:"text/csv;charset=utf-8"});
   const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`indicadores_${s.referencia.replace(/\//g,'-')}.csv`; document.body.appendChild(a); a.click(); a.remove();
 }
-function exportIndicatorsXLS(){
-  const s = indicatorsSnapshot();
-  const rows = [];
-  rows.push(`<tr><th colspan="2">IEP São Lucas — Indicadores</th></tr>`);
-  rows.push(`<tr><td>Referência</td><td>${esc(s.referencia)}</td></tr>`);
-  rows.push(`<tr><td>Gerado em</td><td>${esc(new Date().toLocaleString())}</td></tr>`);
-  rows.push(`<tr><th>Indicador</th><th>Valor</th></tr>`);
-  rows.push(`<tr><td>Inseridos</td><td>${s.inseridos}</td></tr>`);
-  rows.push(`<tr><td>Elegíveis</td><td>${s.elegiveis}</td></tr>`);
-  rows.push(`<tr><td>Não elegíveis</td><td>${s.nao_elegiveis}</td></tr>`);
-  rows.push(`<tr><td>TCLE assinados</td><td>${s.tcle_assinados}</td></tr>`);
-  rows.push(`<tr><th colspan="2">Encaminhadores</th></tr>`);
-  for(const [k,v] of Object.entries(s.encaminhadores)) rows.push(`<tr><td>${esc(k)}</td><td>${v}</td></tr>`);
-  rows.push(`<tr><th colspan="2">Elegíveis por estudo</th></tr>`);
-  if(Object.keys(s.elegiveis_por_estudo).length===0) rows.push(`<tr><td>Sem registros</td><td>0</td></tr>`);
-  else for(const [est,qtd] of Object.entries(s.elegiveis_por_estudo)) rows.push(`<tr><td>${esc(est)}</td><td>${qtd}</td></tr>`);
-  rows.push(`<tr><th colspan="2">Não elegíveis por estudo</th></tr>`);
-  if(Object.keys(s.nao_elegiveis_por_estudo).length===0) rows.push(`<tr><td>Sem registros</td><td>0</td></tr>`);
-  else for(const [est,qtd] of Object.entries(s.nao_elegiveis_por_estudo)) rows.push(`<tr><td>${esc(est)}</td><td>${qtd}</td></tr>`);
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body><table border="1">${rows.join('')}</table></body></html>`;
-  const blob = new Blob([html], {type:'application/vnd.ms-excel'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `indicadores_${s.referencia.replace(/\//g,'-')}.xls`; document.body.appendChild(a); a.click(); a.remove();
-}
 async function exportIndicatorsPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:"pt", format:"a4"});
@@ -639,33 +614,6 @@ async function exportIndicatorsPDF(){
   else { for (const [est,qtd] of Object.entries(s.nao_elegiveis_por_estudo)) { doc.text(`• ${est}: ${qtd}`, 40, y); y += 14; } }
 
   doc.save(`indicadores_${s.referencia.replace(/\//g,'-')}.pdf`);
-}
-
-function exportIndicatorsDOC(){
-  const s = indicatorsSnapshot();
-  const canvas = byId('statusChart'); const img = canvas.toDataURL('image/png');
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body>
-    <h2>IEP São Lucas — Indicadores</h2>
-    <p><strong>Referência:</strong> ${esc(s.referencia)}<br/>
-    <strong>Gerado em:</strong> ${esc(new Date().toLocaleString())}</p>
-    <h3>Resumo</h3>
-    <ul>
-      <li>Inseridos: ${s.inseridos}</li>
-      <li>Elegíveis: ${s.elegiveis}</li>
-      <li>Não elegíveis: ${s.nao_elegiveis}</li>
-      <li>TCLE assinados: ${s.tcle_assinados}</li>
-    </ul>
-    <h3>Dashboard</h3>
-    <p><img src="${img}" alt="Gráfico de Status" style="max-width:600px"/></p>
-    <h3>Encaminhadores</h3>
-    <table border="1">${Object.entries(s.encaminhadores).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table>
-    <h3>Elegíveis por estudo</h3>
-    <table border="1">${Object.keys(s.elegiveis_por_estudo).length===0?'<tr><td>Sem registros</td><td>0</td></tr>':Object.entries(s.elegiveis_por_estudo).map(([e,q])=>`<tr><td>${esc(e)}</td><td>${q}</td></tr>`).join('')}</table>
-    <h3>Não elegíveis por estudo</h3>
-    <table border="1">${Object.keys(s.nao_elegiveis_por_estudo).length===0?'<tr><td>Sem registros</td><td>0</td></tr>':Object.entries(s.nao_elegiveis_por_estudo).map(([e,q])=>`<tr><td>${esc(e)}</td><td>${q}</td></tr>`).join('')}</table>
-  </body></html>`;
-  const blob = new Blob([html], {type:'application/msword'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `indicadores_${s.referencia.replace(/\//g,'-')}.doc`; document.body.appendChild(a); a.click(); a.remove();
 }
 
 /* ======= TABELA & GRÁFICO ======= */
@@ -806,7 +754,7 @@ function showUpcomingReminders(){
 let AGENDAMENTOS = [];
 function renderAgenda(){
   const sec = document.getElementById('agendaSection'); if(!sec) return;
-  const list = (AGENDAMENTOS||[]).map(a=>`<div>📅 ${a.data} — ${esc(a.descricao||'')} ${a.paciente_id?`(Paciente: ${esc(getPatientName(a.paciente_id))})`:''} <button class="btn btn-ghost" onclick="deleteAgendamento('${a.id}')">Excluir</button></div>`).join('');
+  const list = (AGENDAMENTOS||[]).map(a=>`<div>📅 ${a.data} — ${esc(a.descricao||'')} ${a.paciente_id?`(Paciente: ${esc(getPatientName(a.paciente_id))})`:''}</div>`).join('');
   document.getElementById('agendaList').innerHTML = list || '(sem agendamentos)';
   renderCalendar();
 }
@@ -820,13 +768,6 @@ async function addAgendamento(){
   byId('agData').value=''; byId('agDesc').value=''; byId('agPacienteSel').value='';
   await loadAgendamentos();
   showToast('Agendamento criado');
-}
-
-async function deleteAgendamento(id){
-  if(!id) return; if(!confirm('Excluir este agendamento?')) return;
-  const res = await fetch(`${API_BASE}/agendamentos/${id}`, { method:'DELETE', headers: getAuthHeaders() });
-  const d = await res.json().catch(()=>({})); if(!res.ok){ if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return; } showToast(d.error||'Erro ao remover agendamento', true); return; }
-  await loadAgendamentos(); showToast('Agendamento removido');
 }
 
 function renderCalendar(){

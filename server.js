@@ -238,8 +238,11 @@ app.put('/api/pacientes/:id', requireUser, upload.array('documentos', 10), async
       tcleAgendado, tcleAssinado, dataAssinatura,
       elegivel, motivoNaoElegivel, comentarios
     } = req.body;
-    // Atualização: não invalidar registros antigos com valores anteriores.
-    // Mantemos validação apenas na criação.
+
+    const allowedStatuses = ['Triagem','Elegível','Randomizado','Não elegível'];
+    const allowedStudies = ['Tropion - 8','M-18','Evoke-4','Codebrak','Benito','KER-50','M-20','Symphony'];
+    if(!allowedStatuses.includes(status)) return res.status(400).json({error:'Status inválido'});
+    if(!allowedStudies.includes(estudo)) return res.status(400).json({error:'Estudo inválido'});
 
     const sql = `
       UPDATE pacientes SET
@@ -510,10 +513,6 @@ app.get('/api/agendamentos', requireUser, async (req,res)=>{
 app.post('/api/agendamentos', requireUser, async (req,res)=>{
   try{
     const {paciente_id, data, descricao} = req.body;
-    if(!paciente_id) return res.status(400).json({error:'Paciente obrigatório'});
-    const checkSql = convertQuery('SELECT id FROM pacientes WHERE id = ?');
-    const exists = await db.get(checkSql, [paciente_id]);
-    if(!exists) return res.status(400).json({error:'Paciente não cadastrado'});
     const sql = usePostgres
       ? `INSERT INTO agendamentos (paciente_id,data,descricao) VALUES ($1,$2,$3) RETURNING id`
       : `INSERT INTO agendamentos (paciente_id,data,descricao) VALUES (?,?,?)`;

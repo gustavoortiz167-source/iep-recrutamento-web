@@ -60,8 +60,6 @@
   <div class="grow"></div>
   <input id="logoInput" type="file" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
   <button class="btn btn-ghost" onclick="byId('logoInput').click()">Trocar logo</button>
-  <button class="btn" id="btnAuth" onclick="showAuthModal()">Entrar</button>
-  <span id="userBadge" class="mono" style="margin-left:8px; color:#bbb"></span>
 </header>
 
 <div id="toast" class="toast hidden"></div>
@@ -171,7 +169,7 @@
       <div class="grid g4">
         <div class="field"><span class="muted">Mês</span><input id="agMonth" type="month" onchange="renderCalendar()"/></div>
         <div class="field"><span class="muted">Data</span><input id="agData" type="date"/></div>
-        <div class="field"><span class="muted">Paciente</span><select id="agPacienteSel"><option value="">Selecione…</option></select></div>
+        <div class="field"><span class="muted">Paciente (opcional)</span><input id="agPaciente" placeholder="ID ou nome"/></div>
         <div class="field" style="grid-column: span 2"><span class="muted">Descrição</span><input id="agDesc" placeholder="Ex.: Consulta TCLE"/></div>
         <div class="field" style="grid-column: span 4; display:flex; justify-content:flex-end"><button class="btn" onclick="addAgendamento()">Adicionar</button></div>
       </div>
@@ -277,7 +275,7 @@ async function apiCreatePaciente(data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(!res.ok){ const errData = await res.json().catch(()=>({})); showToast(errData.error || 'Erro ao criar paciente', true); return null; }
+    if(!res.ok) throw new Error('Erro ao criar paciente');
     return await res.json();
   }catch(e){
     console.error('Erro ao criar paciente:', e);
@@ -300,7 +298,7 @@ async function apiUpdatePaciente(id, data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(!res.ok){ const errData = await res.json().catch(()=>({})); showToast(errData.error || 'Erro ao atualizar paciente', true); return null; }
+    if(!res.ok) throw new Error('Erro ao atualizar paciente');
     return await res.json();
   }catch(e){
     console.error('Erro ao atualizar paciente:', e);
@@ -663,7 +661,6 @@ function clearMonth(){ byId("monthFilter").value=""; refreshUI(); }
 /* ======= CARREGAMENTO DE DADOS ======= */
 async function loadPacientes(){
   DB = await apiGetPacientes();
-  renderPatientSelect();
 }
 
 /* ======= INIT ======= */
@@ -694,7 +691,6 @@ async function ensureAuth(){
       } else { CURRENT_USER = await res.json(); }
     }catch(e){ AUTH_TOKEN=''; localStorage.removeItem('auth_token'); await showAuthModal(); }
   }
-  updateAuthUI();
 }
 
 async function showAuthModal(){
@@ -721,7 +717,7 @@ async function showAuthModal(){
     try{
       const res = await fetch(`${API_BASE}/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({login,senha}) });
       const data = await res.json(); if(!res.ok){ showToast(data.error||'Falha no login', true); return; }
-      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove(); updateAuthUI();
+      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove();
     }catch(e){ showToast('Erro ao autenticar', true); }
   };
   byId('btnRegister').onclick = async ()=>{
@@ -736,23 +732,10 @@ async function showAuthModal(){
     const senha = byId('authSenha').value; try{
       const res = await fetch(`${API_BASE}/auth/admin-login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({senha}) });
       const data = await res.json(); if(!res.ok){ showToast(data.error||'Falha admin', true); return; }
-      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove(); updateAuthUI();
+      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove();
     }catch(e){ showToast('Erro admin', true); }
   };
 }
-
-function updateAuthUI(){
-  const badge = byId('userBadge'); const btn = byId('btnAuth');
-  if(CURRENT_USER){
-    badge.textContent = `Usuário: ${CURRENT_USER.nome} (${CURRENT_USER.role})`;
-    btn.textContent = 'Sair'; btn.onclick = logout;
-  } else {
-    badge.textContent = '';
-    btn.textContent = 'Entrar'; btn.onclick = showAuthModal;
-  }
-}
-
-function logout(){ AUTH_TOKEN=''; CURRENT_USER=null; localStorage.removeItem('auth_token'); updateAuthUI(); showAuthModal(); }
 
 async function loadAgendamentos(){
   try{ const res = await fetch(`${API_BASE}/agendamentos`, { headers: getAuthHeaders() }); if(!res.ok) return []; AGENDAMENTOS = await res.json(); renderAgenda(); return AGENDAMENTOS; }catch(e){ return []; }
@@ -766,18 +749,17 @@ function showUpcomingReminders(){
 let AGENDAMENTOS = [];
 function renderAgenda(){
   const sec = document.getElementById('agendaSection'); if(!sec) return;
-  const list = (AGENDAMENTOS||[]).map(a=>`<div>📅 ${a.data} — ${esc(a.descricao||'')} ${a.paciente_id?`(Paciente: ${esc(getPatientName(a.paciente_id))})`:''}</div>`).join('');
+  const list = (AGENDAMENTOS||[]).map(a=>`<div>📅 ${a.data} — ${esc(a.descricao||'')} ${a.paciente_id?`(Paciente: ${esc(a.paciente_id)})`:''}</div>`).join('');
   document.getElementById('agendaList').innerHTML = list || '(sem agendamentos)';
   renderCalendar();
 }
 
 async function addAgendamento(){
-  const data = byId('agData').value; const descricao = byId('agDesc').value.trim(); const paciente_id = byId('agPacienteSel').value;
+  const data = byId('agData').value; const descricao = byId('agDesc').value.trim(); const paciente_id = byId('agPaciente').value.trim();
   if(!data){ showToast('Informe a data do agendamento', true); return; }
-  if(!paciente_id){ showToast('Selecione o paciente', true); return; }
-  const res = await fetch(`${API_BASE}/agendamentos`, { method:'POST', headers: { ...getAuthHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({paciente_id, data, descricao}) });
+  const res = await fetch(`${API_BASE}/agendamentos`, { method:'POST', headers: { ...getAuthHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({paciente_id: paciente_id||null, data, descricao}) });
   const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao agendar', true); return; }
-  byId('agData').value=''; byId('agDesc').value=''; byId('agPacienteSel').value='';
+  byId('agData').value=''; byId('agDesc').value=''; byId('agPaciente').value='';
   await loadAgendamentos();
   showToast('Agendamento criado');
 }
@@ -802,11 +784,6 @@ function renderCalendar(){
     items.push(`<div style="border:1px solid #eee;border-radius:8px;padding:8px;min-height:48px">${badge}<div style="font-weight:600">${d}</div></div>`);
   }
   grid.innerHTML = items.join('');
-}
-
-function getPatientName(id){ const p = (DB||[]).find(x=>x.id===id); return p ? p.nome : id; }
-function renderPatientSelect(){
-  const sel = byId('agPacienteSel'); if(!sel) return; sel.innerHTML = '<option value="">Selecione…</option>' + (DB||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join('');
 }
 
 async function loadUsuarios(){

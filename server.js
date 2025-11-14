@@ -7,7 +7,6 @@ const cors = require('cors');
 const db = require('./database');
 const { usePostgres } = require('./database');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 
 // Helper: Converter query SQLite (?) para PostgreSQL ($1, $2...)
 function convertQuery(sql) {
@@ -131,24 +130,6 @@ async function createSession(usuarioId){
     });
   }
   return token;
-}
-
-async function notifyAdminNewUser({nome, login, email}){
-  const to = 'gustavoortiz167@gmail.com';
-  const subject = 'Novo cadastro pendente de aprovação - IEP Recrutamento';
-  const text = `Novo usuário cadastrado:\nNome: ${nome}\nLogin: ${login}\nEmail: ${email||'-'}\nAcesse o painel de administração para aprovar.`;
-  try{
-    const host = process.env.SMTP_HOST;
-    const port = Number(process.env.SMTP_PORT||0) || 587;
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-    if(host && user && pass){
-      const transporter = nodemailer.createTransport({ host, port, secure: port===465, auth:{ user, pass } });
-      await transporter.sendMail({ from: user, to, subject, text });
-    } else {
-      console.log('🔔 Novo cadastro:', {nome, login, email});
-    }
-  }catch(e){ console.error('Erro ao enviar email de novo cadastro:', e); }
 }
 
 async function requireAdmin(req,res,next){
@@ -441,11 +422,9 @@ app.post('/api/auth/register', async (req,res)=>{
       : `INSERT INTO usuarios (nome,email,login,senha_hash) VALUES (?,?,?,?)`;
     if(usePostgres){
       const r = await db.pool.query(sql,[nome,email||null,login,hashPassword(senha)]);
-      await notifyAdminNewUser({nome, login, email});
       return res.status(201).json({message:'Cadastro enviado para aprovação', id:r.rows[0].id});
     } else {
       await new Promise((resolve,reject)=>{ db.run(sql,[nome,email||null,login,hashPassword(senha)], function(err){ if(err) reject(err); else resolve(); }); });
-      await notifyAdminNewUser({nome, login, email});
       return res.status(201).json({message:'Cadastro enviado para aprovação'});
     }
   }catch(e){

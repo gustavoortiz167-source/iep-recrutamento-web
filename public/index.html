@@ -71,9 +71,9 @@
     <h2>Cadastro de Paciente</h2>
     <div class="body grid g4" id="patientForm">
       <div class="field"><span class="muted">Nome completo</span><input id="nome" placeholder="Ex.: João da Silva"/></div>
-      <div class="field"><span class="muted">Status</span><select id="status"><option value="">Selecione…</option><option>Triagem</option><option>Elegível</option><option>Randomizado</option><option>Padrao</option></select></div>
-      <div class="field"><span class="muted">Estudo</span><select id="estudo"><option value="">Selecione…</option><option>Tropion 7</option><option>M-18</option></select></div>
-      <div class="field"><span class="muted">Data (cadastro)</span><input id="data" type="date"/></div>
+      <div class="field"><span class="muted">Status</span><select id="status"><option value="">Selecione…</option><option>Triagem</option><option>Elegível</option><option>Randomizado</option><option>Não elegível</option></select></div>
+      <div class="field"><span class="muted">Estudo</span><select id="estudo"><option value="">Selecione…</option><option>Tropion - 8</option><option>M-18</option><option>Evoke-4</option><option>Codebrak</option><option>Benito</option><option>KER-50</option><option>M-20</option><option>Symphony</option></select></div>
+      <div class="field"><span class="muted">Data do encaminhamento</span><input id="data" type="date"/></div>
 
       <div class="field">
         <span class="muted">Encaminhador</span>
@@ -91,6 +91,8 @@
 
       <div class="field"><span class="muted">Elegível?</span><select id="elegivel" onchange="toggleMotivo()"><option value="">Selecione…</option><option>Sim</option><option>Não</option></select><span class="hint">Se marcar "Não", informe o motivo.</span></div>
       <div class="field" id="wrapMotivo" style="grid-column: span 3; display:none;"><span class="muted">Motivo da não elegibilidade</span><textarea id="motivoNaoElegivel" placeholder="Descreva de forma objetiva"></textarea></div>
+
+      <div class="field" style="grid-column: span 4;"><span class="muted">Comentários</span><textarea id="comentarios" placeholder="Observações detalhadas sobre o status do paciente"></textarea></div>
 
       <div class="field" style="grid-column: span 2;">
         <span class="muted">Anexar documentos (PDF ou Word)</span>
@@ -148,6 +150,10 @@
         <div class="muted">Elegíveis por estudo</div>
         <pre id="kpiEstudosElegiveis" class="mono" style="margin:8px 0 0; color:var(--azul-claro); white-space:pre-wrap;"></pre>
       </div>
+      <div class="card mt12" style="text-align:left">
+        <div class="muted">Não elegíveis por estudo</div>
+        <pre id="kpiEstudosNaoElegiveis" class="mono" style="margin:8px 0 0; color:#e74c3c; white-space:pre-wrap;"></pre>
+      </div>
     </div>
   </div>
 
@@ -157,6 +163,38 @@
     <div class="body"><canvas id="statusChart" style="max-height:360px"></canvas></div>
   </div>
 
+  <div class="section" id="agendaSection">
+    <h2>Agenda</h2>
+    <div class="body">
+      <div class="grid g4">
+        <div class="field"><span class="muted">Mês</span><input id="agMonth" type="month" onchange="renderCalendar()"/></div>
+        <div class="field"><span class="muted">Data</span><input id="agData" type="date"/></div>
+        <div class="field"><span class="muted">Paciente (opcional)</span><input id="agPaciente" placeholder="ID ou nome"/></div>
+        <div class="field" style="grid-column: span 2"><span class="muted">Descrição</span><input id="agDesc" placeholder="Ex.: Consulta TCLE"/></div>
+        <div class="field" style="grid-column: span 4; display:flex; justify-content:flex-end"><button class="btn" onclick="addAgendamento()">Adicionar</button></div>
+      </div>
+      <div class="card mt12" style="text-align:left">
+        <div class="muted">Calendário</div>
+        <div id="calendarGrid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px"></div>
+      </div>
+      <div class="card mt12" style="text-align:left">
+        <div class="muted">Agendamentos</div>
+        <div id="agendaList" class="mono" style="margin:8px 0 0; white-space:pre-wrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="adminSection" style="display:none">
+    <h2>Administração</h2>
+    <div class="body">
+      <div class="row" style="justify-content:flex-end; margin-bottom:12px"><button class="btn" onclick="loadUsuarios()">Atualizar lista</button></div>
+      <div class="card mt12" style="text-align:left">
+        <div class="muted">Usuários</div>
+        <div id="usuariosList" class="mono" style="margin:8px 0 0; white-space:pre-wrap"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- TABELA -->
   <div class="section">
     <h2>Pacientes</h2>
@@ -164,8 +202,7 @@
       <table>
         <thead>
           <tr>
-            <th>Nome</th><th>Status</th><th>Estudo</th><th>Encaminhador</th>
-            <th>Elegível?</th><th>Motivo</th><th>Data</th><th>TCLE</th><th class="nowrap">Ações</th>
+            <th>Nome</th><th>Status</th><th>Estudo</th><th>Encaminhador</th><th>Elegível</th><th>Motivo</th><th>Comentários</th><th>Data do encaminhamento</th><th>TCLE</th><th class="nowrap">Ações</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -204,26 +241,17 @@ function showToast(msg, isErr=false){
 
 // Função para solicitar senha de admin
 async function getAdminPassword(){
-  if(ADMIN_PASSWORD) return ADMIN_PASSWORD;
-  
-  const senha = prompt('🔐 Digite a senha de administrador para fazer alterações:');
-  if(!senha){
-    showToast('Senha necessária para esta operação', true);
-    return null;
-  }
-  
-  ADMIN_PASSWORD = senha;
-  return senha;
+  return null;
 }
 
 // Função auxiliar para adicionar senha no cabeçalho
 function getAuthHeaders(){
-  return ADMIN_PASSWORD ? { 'x-admin-password': ADMIN_PASSWORD } : {};
+  return AUTH_TOKEN ? { 'Authorization': 'Bearer ' + AUTH_TOKEN } : {};
 }
 
 async function apiGetPacientes(){
   try{
-    const res = await fetch(`${API_BASE}/pacientes`);
+    const res = await fetch(`${API_BASE}/pacientes`, { headers: getAuthHeaders() });
     if(!res.ok) throw new Error('Erro ao carregar pacientes');
     return await res.json();
   }catch(e){
@@ -234,9 +262,6 @@ async function apiGetPacientes(){
 }
 
 async function apiCreatePaciente(data, files){
-  const senha = await getAdminPassword();
-  if(!senha) return null;
-  
   try{
     const formData = new FormData();
     Object.keys(data).forEach(key => formData.append(key, data[key]));
@@ -250,12 +275,6 @@ async function apiCreatePaciente(data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(res.status === 401 || res.status === 403){
-      ADMIN_PASSWORD = null;  // limpa senha incorreta
-      const errData = await res.json();
-      showToast(errData.error || 'Senha incorreta', true);
-      return null;
-    }
     if(!res.ok) throw new Error('Erro ao criar paciente');
     return await res.json();
   }catch(e){
@@ -266,9 +285,6 @@ async function apiCreatePaciente(data, files){
 }
 
 async function apiUpdatePaciente(id, data, files){
-  const senha = await getAdminPassword();
-  if(!senha) return null;
-  
   try{
     const formData = new FormData();
     Object.keys(data).forEach(key => formData.append(key, data[key]));
@@ -282,12 +298,6 @@ async function apiUpdatePaciente(id, data, files){
       headers: getAuthHeaders(),
       body: formData
     });
-    if(res.status === 401 || res.status === 403){
-      ADMIN_PASSWORD = null;
-      const errData = await res.json();
-      showToast(errData.error || 'Senha incorreta', true);
-      return null;
-    }
     if(!res.ok) throw new Error('Erro ao atualizar paciente');
     return await res.json();
   }catch(e){
@@ -298,9 +308,6 @@ async function apiUpdatePaciente(id, data, files){
 }
 
 async function apiDeletePaciente(id){
-  const senha = await getAdminPassword();
-  if(!senha) return null;
-  
   try{
     const res = await fetch(`${API_BASE}/pacientes/${id}`, {
       method: 'DELETE',
@@ -324,8 +331,6 @@ async function apiDeletePaciente(id){
 /* ======= LOGO ======= */
 async function handleLogoUpload(ev){
   const file = ev.target.files?.[0]; if(!file) return;
-  const senha = await getAdminPassword();
-  if(!senha) return;
   
   const fr = new FileReader();
   fr.onload = async () => {
@@ -340,12 +345,7 @@ async function handleLogoUpload(ev){
         },
         body: JSON.stringify({ logoData: fr.result })
       });
-      if(res.status === 401 || res.status === 403){
-        ADMIN_PASSWORD = null;
-        const errData = await res.json();
-        showToast(errData.error || 'Senha incorreta', true);
-        return;
-      }
+      if(res.status === 401 || res.status === 403){ const errData = await res.json(); showToast(errData.error || 'Não autorizado', true); return; }
       showToast('Logo atualizado com sucesso');
     }catch(e){
       console.error('Erro ao salvar logo:', e);
@@ -357,7 +357,7 @@ async function handleLogoUpload(ev){
 
 async function loadLogo(){
   try{
-    const res = await fetch(`${API_BASE}/configuracoes/logo`);
+    const res = await fetch(`${API_BASE}/configuracoes/logo`, { headers: getAuthHeaders() });
     const data = await res.json();
     byId("logoImg").src = data.logo || "https://upload.wikimedia.org/wikipedia/commons/3/3f/Transparent_placeholder.png";
   }catch(e){
@@ -409,6 +409,7 @@ function readForm(){
   const dataAssinatura = byId("dataAssinatura").value;
   const elegivel = byId("elegivel").value;
   const motivoNaoElegivel = byId("motivoNaoElegivel").value.trim();
+  const comentarios = byId("comentarios").value.trim();
 
   let invalid = false;
   if(!nome){ markErr(byId("nome"),true); invalid = true; }
@@ -419,7 +420,7 @@ function readForm(){
   if(elegivel === "Não" && !motivoNaoElegivel){ markErr(byId("motivoNaoElegivel"),true); invalid = true; showToast("Elegível = Não → informe o motivo.", true); }
   if(invalid){ return null; }
 
-  return { nome, status, estudo, data, encaminhador, tcleAgendado, tcleAssinado, dataAssinatura, elegivel, motivoNaoElegivel };
+  return { nome, status, estudo, data, encaminhador, tcleAgendado, tcleAssinado, dataAssinatura, elegivel, motivoNaoElegivel, comentarios };
 }
 
 /* ======= CRUD ======= */
@@ -469,6 +470,7 @@ function editPatient(id){
   byId("elegivel").value=p.elegivel||"";
   byId("wrapMotivo").style.display=(p.elegivel==="Não")?"block":"none";
   byId("motivoNaoElegivel").value=p.motivoNaoElegivel||"";
+  byId("comentarios").value=p.comentarios||"";
 
   byId("editingId").value=p.id; byId("btnSubmit").textContent="Salvar alterações";
   window.scrollTo({top:0,behavior:"smooth"});
@@ -486,7 +488,7 @@ async function deletePatient(id){
 
 async function openDocumento(id){
   try{
-    const res = await fetch(`${API_BASE}/documentos/${id}`);
+    const res = await fetch(`${API_BASE}/documentos/${id}`, { headers: getAuthHeaders() });
     if(!res.ok){ showToast("Erro ao buscar documentos", true); return; }
     const docs = await res.json();
     if(!docs || docs.length===0){ showToast("Cadastro sem documento anexado", true); return; }
@@ -513,7 +515,12 @@ function computeIndicators(list){
     porEstudo[r.estudo] = (porEstudo[r.estudo]||0)+1;
   });
 
-  return { inseridos, elegiveis, naoElegiveis, tcle, enc, porEstudo };
+  const porEstudoNao = {};
+  list.filter(r=>r.elegivel==="Não").forEach(r=>{
+    porEstudoNao[r.estudo] = (porEstudoNao[r.estudo]||0)+1;
+  });
+
+  return { inseridos, elegiveis, naoElegiveis, tcle, enc, porEstudo, porEstudoNao };
 }
 
 function updateKPIs(){
@@ -527,6 +534,8 @@ function updateKPIs(){
     `Dr. Milton: ${k.enc["Dr. Milton"]} | Dr. Hélio: ${k.enc["Dr. Hélio"]} | Dr. Thiago: ${k.enc["Dr. Thiago"]} | ALTY: ${k.enc["ALTY"]} | Outros: ${k.enc["Outros"]}`;
   const linhas = Object.entries(k.porEstudo).map(([e,v])=>`${e}: ${v}`);
   byId("kpiEstudosElegiveis").textContent = linhas.length ? linhas.join(" | ") : "(sem registros elegíveis no período)";
+  const linhasN = Object.entries(k.porEstudoNao).map(([e,v])=>`${e}: ${v}`);
+  byId("kpiEstudosNaoElegiveis").textContent = linhasN.length ? linhasN.join(" | ") : "(sem registros não elegíveis no período)";
 }
 
 /* ======= EXPORTS ======= */
@@ -538,7 +547,7 @@ function indicatorsSnapshot(){
   return {
     referencia, gerado_em: new Date().toISOString(),
     inseridos: k.inseridos, elegiveis: k.elegiveis, nao_elegiveis: k.naoElegiveis, tcle_assinados: k.tcle,
-    encaminhadores: k.enc, elegiveis_por_estudo: k.porEstudo
+    encaminhadores: k.enc, elegiveis_por_estudo: k.porEstudo, nao_elegiveis_por_estudo: k.porEstudoNao
   };
 }
 function exportIndicatorsJSON(){
@@ -559,6 +568,9 @@ function exportIndicatorsCSV(){
   csv += "\nElegíveis por estudo,Quantidade\n";
   if(Object.keys(s.elegiveis_por_estudo).length===0) csv += "Sem registros,0\n";
   else for (const [est,qtd] of Object.entries(s.elegiveis_por_estudo)) csv += `${est},${qtd}\n`;
+  csv += "\nNão elegíveis por estudo,Quantidade\n";
+  if(Object.keys(s.nao_elegiveis_por_estudo).length===0) csv += "Sem registros,0\n";
+  else for (const [est,qtd] of Object.entries(s.nao_elegiveis_por_estudo)) csv += `${est},${qtd}\n`;
   const BOM = "\uFEFF";
   const blob = new Blob([BOM + csv], {type:"text/csv;charset=utf-8"});
   const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`indicadores_${s.referencia.replace(/\//g,'-')}.csv`; document.body.appendChild(a); a.click(); a.remove();
@@ -589,6 +601,11 @@ async function exportIndicatorsPDF(){
   doc.setFont("helvetica","normal");
   if (Object.keys(s.elegiveis_por_estudo).length === 0) { doc.text("• Sem registros", 40, y); }
   else { for (const [est,qtd] of Object.entries(s.elegiveis_por_estudo)) { doc.text(`• ${est}: ${qtd}`, 40, y); y += 14; } }
+  y += 16;
+  doc.setFont("helvetica","bold"); doc.text("Não elegíveis por estudo", 40, y); y += 16;
+  doc.setFont("helvetica","normal");
+  if (Object.keys(s.nao_elegiveis_por_estudo).length === 0) { doc.text("• Sem registros", 40, y); }
+  else { for (const [est,qtd] of Object.entries(s.nao_elegiveis_por_estudo)) { doc.text(`• ${est}: ${qtd}`, 40, y); y += 14; } }
 
   doc.save(`indicadores_${s.referencia.replace(/\//g,'-')}.pdf`);
 }
@@ -607,6 +624,7 @@ function renderTable(){
         <td>${esc(r.encaminhador)}</td>
         <td>${esc(r.elegivel||"-")}</td>
         <td>${esc(r.motivoNaoElegivel||"-")}</td>
+        <td>${esc(r.comentarios||"-")}</td>
         <td>${esc(r.data)}</td>
         <td>${r.tcleAssinado==="Sim" ? '<span class="mono" style="color:#7CFC90">Sim</span>' : '<span class="mono" style="color:#bbb">Não</span>'}</td>
         <td class="nowrap">
@@ -625,10 +643,15 @@ function updateChart(){
   list.forEach(p => { statuses[p.status] = (statuses[p.status] || 0) + 1; });
   const ctx = byId("statusChart").getContext("2d");
   if(CHART) CHART.destroy();
-  CHART = new Chart(ctx, {
-    type:"pie",
-    data:{ labels:Object.keys(statuses), datasets:[{ data:Object.values(statuses), backgroundColor:["#1E90FF","#0055A4","#28a745","#FFC107","#6c757d","#e74c3c","#8e44ad"] }] }
+  const labels = Object.keys(statuses);
+  const colors = labels.map(l=>{
+    if(l==="Elegível") return "#28a745";
+    if(l==="Não elegível") return "#e74c3c";
+    if(l==="Triagem") return "#1E90FF";
+    if(l==="Randomizado") return "#8e44ad";
+    return "#6c757d";
   });
+  CHART = new Chart(ctx, { type:"pie", data:{ labels, datasets:[{ data:Object.values(statuses), backgroundColor:colors }] } });
 }
 
 /* ======= VISÃO ======= */
@@ -642,12 +665,147 @@ async function loadPacientes(){
 
 /* ======= INIT ======= */
 async function init(){
+  await ensureAuth();
   await loadLogo();
   await loadPacientes();
+  await loadAgendamentos();
+  showUpcomingReminders();
   showToast("Sistema carregado com sucesso!");
   refreshUI();
+  if(CURRENT_USER && CURRENT_USER.role==='admin'){ byId('adminSection').style.display='block'; await loadUsuarios(); }
 }
 init();
+</script>
+<script>
+let AUTH_TOKEN = localStorage.getItem('auth_token')||'';
+let CURRENT_USER = null;
+async function ensureAuth(){
+  if(!AUTH_TOKEN){
+    await showAuthModal();
+  } else {
+    try{
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: getAuthHeaders() });
+      if(!res.ok){
+        AUTH_TOKEN=''; localStorage.removeItem('auth_token');
+        await showAuthModal();
+      } else { CURRENT_USER = await res.json(); }
+    }catch(e){ AUTH_TOKEN=''; localStorage.removeItem('auth_token'); await showAuthModal(); }
+  }
+}
+
+async function showAuthModal(){
+  const overlay = document.createElement('div');
+  overlay.style.position='fixed'; overlay.style.inset='0'; overlay.style.background='rgba(0,0,0,.6)'; overlay.style.zIndex='9999';
+  overlay.innerHTML = `
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;color:#000;min-width:340px;padding:20px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3)">
+      <h3 style="margin:0 0 14px">Acesso</h3>
+      <div class="field"><span class="muted">Login</span><input id="authLogin"/></div>
+      <div class="field"><span class="muted">Senha</span><input id="authSenha" type="password"/></div>
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:12px">
+        <button class="btn btn-ghost" id="btnRegister">Cadastrar</button>
+        <button class="btn" id="btnLogin">Entrar</button>
+      </div>
+      <div class="hint" style="margin-top:8px">Após cadastro, um administrador precisa aprovar seu acesso.</div>
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:8px">
+        <button class="btn btn-ghost" id="btnAdmin">Entrar como administrador</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  byId('btnLogin').onclick = async ()=>{
+    const login = byId('authLogin').value.trim(); const senha = byId('authSenha').value;
+    try{
+      const res = await fetch(`${API_BASE}/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({login,senha}) });
+      const data = await res.json(); if(!res.ok){ showToast(data.error||'Falha no login', true); return; }
+      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove();
+    }catch(e){ showToast('Erro ao autenticar', true); }
+  };
+  byId('btnRegister').onclick = async ()=>{
+    const login = byId('authLogin').value.trim(); const senha = byId('authSenha').value; const nome = login;
+    try{
+      const res = await fetch(`${API_BASE}/auth/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nome,login,senha}) });
+      const data = await res.json(); if(!res.ok){ showToast(data.error||'Erro no cadastro', true); return; }
+      showToast('Cadastro enviado para aprovação');
+    }catch(e){ showToast('Erro no cadastro', true); }
+  };
+  byId('btnAdmin').onclick = async ()=>{
+    const senha = byId('authSenha').value; try{
+      const res = await fetch(`${API_BASE}/auth/admin-login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({senha}) });
+      const data = await res.json(); if(!res.ok){ showToast(data.error||'Falha admin', true); return; }
+      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove();
+    }catch(e){ showToast('Erro admin', true); }
+  };
+}
+
+async function loadAgendamentos(){
+  try{ const res = await fetch(`${API_BASE}/agendamentos`, { headers: getAuthHeaders() }); if(!res.ok) return []; AGENDAMENTOS = await res.json(); renderAgenda(); return AGENDAMENTOS; }catch(e){ return []; }
+}
+
+function showUpcomingReminders(){
+  const now = new Date(); const upcoming = (AGENDAMENTOS||[]).filter(a=> new Date(a.data) > now);
+  if(upcoming.length){ showToast(`Há ${upcoming.length} agendamentos futuros`); }
+}
+
+let AGENDAMENTOS = [];
+function renderAgenda(){
+  const sec = document.getElementById('agendaSection'); if(!sec) return;
+  const list = (AGENDAMENTOS||[]).map(a=>`<div>📅 ${a.data} — ${esc(a.descricao||'')} ${a.paciente_id?`(Paciente: ${esc(a.paciente_id)})`:''}</div>`).join('');
+  document.getElementById('agendaList').innerHTML = list || '(sem agendamentos)';
+  renderCalendar();
+}
+
+async function addAgendamento(){
+  const data = byId('agData').value; const descricao = byId('agDesc').value.trim(); const paciente_id = byId('agPaciente').value.trim();
+  if(!data){ showToast('Informe a data do agendamento', true); return; }
+  const res = await fetch(`${API_BASE}/agendamentos`, { method:'POST', headers: { ...getAuthHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({paciente_id: paciente_id||null, data, descricao}) });
+  const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao agendar', true); return; }
+  byId('agData').value=''; byId('agDesc').value=''; byId('agPaciente').value='';
+  await loadAgendamentos();
+  showToast('Agendamento criado');
+}
+
+function renderCalendar(){
+  const grid = document.getElementById('calendarGrid'); if(!grid) return;
+  const sel = document.getElementById('agMonth').value;
+  const now = new Date();
+  const y = sel ? Number(sel.split('-')[0]) : now.getFullYear();
+  const m = sel ? Number(sel.split('-')[1]) : (now.getMonth()+1);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const firstDay = new Date(y, m-1, 1).getDay();
+  const items = [];
+  for(let i=0;i<firstDay;i++){ items.push('<div></div>'); }
+  const fmt = (n)=>String(n).padStart(2,'0');
+  const map = {};
+  (AGENDAMENTOS||[]).forEach(a=>{ const d = new Date(a.data); if(d.getFullYear()===y && (d.getMonth()+1)===m){ const key = `${y}-${fmt(m)}-${fmt(d.getDate())}`; map[key] = (map[key]||[]).concat([a]); } });
+  for(let d=1; d<=daysInMonth; d++){
+    const key = `${y}-${fmt(m)}-${fmt(d)}`;
+    const pts = (map[key]||[]).length;
+    const badge = pts ? `<span style="background:#1E90FF;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;float:right">${pts}</span>` : '';
+    items.push(`<div style="border:1px solid #eee;border-radius:8px;padding:8px;min-height:48px">${badge}<div style="font-weight:600">${d}</div></div>`);
+  }
+  grid.innerHTML = items.join('');
+}
+
+async function loadUsuarios(){
+  try{
+    const res = await fetch(`${API_BASE}/admin/usuarios`, { headers: getAuthHeaders() });
+    const list = await res.json();
+    const html = list.map(u=>{
+      const st = (u.aprovado? 'aprovado' : 'pendente');
+      const btn = u.aprovado ? '' : `<button class="btn" onclick="aprovarUsuario(${u.id})">Aprovar</button>`;
+      return `<div>${esc(u.nome)} (${esc(u.login)}) — ${st} ${btn}</div>`;
+    }).join('');
+    byId('usuariosList').innerHTML = html || '(sem usuários)';
+  }catch(e){ byId('usuariosList').textContent='Erro ao carregar usuários'; }
+}
+
+async function aprovarUsuario(id){
+  try{
+    const res = await fetch(`${API_BASE}/admin/usuarios/${id}/aprovar`, { method:'POST', headers: getAuthHeaders() });
+    const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao aprovar', true); return; }
+    await loadUsuarios(); showToast('Usuário aprovado');
+  }catch(e){ showToast('Erro ao aprovar', true); }
+}
 </script>
 </body>
 </html>

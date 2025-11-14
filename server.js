@@ -6,6 +6,7 @@ const fs = require('fs');
 const cors = require('cors');
 const db = require('./database');
 const { usePostgres } = require('./database');
+const crypto = require('crypto');
 
 // Helper: Converter query SQLite (?) para PostgreSQL ($1, $2...)
 function convertQuery(sql) {
@@ -39,14 +40,16 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
 
 // Criar diretório de uploads se não existir
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = process.env.UPLOADS_DIR && process.env.UPLOADS_DIR.trim() !== ''
+  ? process.env.UPLOADS_DIR
+  : path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 console.log(`📁 Uploads: ${uploadsDir}`);
+app.use('/uploads', express.static(uploadsDir));
 
 // Configuração do Multer para upload de arquivos
 const storage = multer.diskStorage({
@@ -79,30 +82,67 @@ const upload = multer({
 
 // ==================== MIDDLEWARE DE AUTENTICAÇÃO ====================
 
-function requireAuth(req, res, next) {
-  const password = req.headers['x-admin-password'] || req.body.password || req.query.password;
-  
-  if (!password) {
-    return res.status(401).json({ 
-      error: 'Senha necessária para esta operação',
-      requireAuth: true 
-    });
+async function getUserFromToken(token){
+  if(!token) return null;
+  const sql = usePostgres
+    ? `SELECT u.* FROM tokens t JOIN usuarios u ON u.id = t.usuario_id WHERE t.token = $1 AND t.expiresAt > NOW()`
+    : `SELECT u.* FROM tokens t JOIN usuarios u ON u.id = t.usuario_id WHERE t.token = ? AND datetime(t.expiresAt) > datetime('now')`;
+  try{
+    const row = await db.get(sql, [token]);
+    if(!row) return null;
+    if(usePostgres){
+      return row;
+    }
+    return row;
+  }catch(e){ return null; }
+}
+
+async function requireUser(req,res,next){
+  const auth = req.headers['authorization']||'';
+  const parts = auth.split(' ');
+  const token = parts.length===2 && parts[0]==='Bearer' ? parts[1] : null;
+  const user = await getUserFromToken(token);
+  if(!user || (user.aprovado===false || user.aprovado===0)){
+    return res.status(401).json({error:'Não autorizado'});
   }
-  
-  if (password !== ADMIN_PASSWORD) {
-    return res.status(403).json({ 
-      error: 'Senha incorreta',
-      requireAuth: true 
-    });
-  }
-  
+  req.user = user;
   next();
+}
+
+function hashPassword(s){
+  const salt = process.env.AUTH_SALT || 'iep_salt_2025';
+  return crypto.createHash('sha256').update(s + salt).digest('hex');
+}
+
+function newToken(){
+  return crypto.randomBytes(32).toString('hex');
+}
+
+async function createSession(usuarioId){
+  const token = newToken();
+  const expiresAt = usePostgres ? `NOW() + INTERVAL '7 days'` : null;
+  if(usePostgres){
+    await db.pool.query(`INSERT INTO tokens (token, usuario_id, expiresAt) VALUES ($1, $2, NOW() + INTERVAL '7 days')`, [token, usuarioId]);
+  } else {
+    const exp = new Date(Date.now()+7*24*60*60*1000).toISOString().replace('Z','');
+    await new Promise((resolve,reject)=>{
+      db.run(`INSERT INTO tokens (token, usuario_id, expiresAt) VALUES (?, ?, ?)`, [token, usuarioId, exp], (err)=>{ if(err) reject(err); else resolve(); });
+    });
+  }
+  return token;
+}
+
+async function requireAdmin(req,res,next){
+  await requireUser(req,res,async ()=>{
+    if((req.user.role||'user')!=='admin') return res.status(403).json({error:'Somente administrador'});
+    next();
+  });
 }
 
 // ==================== ROTAS DA API ====================
 
 // GET /api/pacientes - Listar todos os pacientes
-app.get('/api/pacientes', async (req, res) => {
+app.get('/api/pacientes', requireUser, async (req, res) => {
   try {
     const rows = await db.all('SELECT * FROM pacientes ORDER BY data DESC');
     res.json(rows);
@@ -113,7 +153,7 @@ app.get('/api/pacientes', async (req, res) => {
 });
 
 // GET /api/pacientes/:id - Buscar paciente por ID
-app.get('/api/pacientes/:id', async (req, res) => {
+app.get('/api/pacientes/:id', requireUser, async (req, res) => {
   try {
     const { id } = req.params;
     const sql = convertQuery('SELECT * FROM pacientes WHERE id = ?');
@@ -134,13 +174,18 @@ app.get('/api/pacientes/:id', async (req, res) => {
 });
 
 // POST /api/pacientes - Criar novo paciente
-app.post('/api/pacientes', requireAuth, upload.array('documentos', 10), async (req, res) => {
+app.post('/api/pacientes', requireUser, upload.array('documentos', 10), async (req, res) => {
   try {
     const {
       id, nome, status, estudo, data, encaminhador,
       tcleAgendado, tcleAssinado, dataAssinatura,
-      elegivel, motivoNaoElegivel
+      elegivel, motivoNaoElegivel, comentarios
     } = req.body;
+
+    const allowedStatuses = ['Triagem','Elegível','Randomizado','Não elegível'];
+    const allowedStudies = ['Tropion - 8','M-18','Evoke-4','Codebrak','Benito','KER-50','M-20','Symphony'];
+    if(!allowedStatuses.includes(status)) return res.status(400).json({error:'Status inválido'});
+    if(!allowedStudies.includes(estudo)) return res.status(400).json({error:'Estudo inválido'});
 
     const pacienteId = id || 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -148,14 +193,14 @@ app.post('/api/pacientes', requireAuth, upload.array('documentos', 10), async (r
       INSERT INTO pacientes (
         id, nome, status, estudo, data, encaminhador,
         tcleAgendado, tcleAssinado, dataAssinatura,
-        elegivel, motivoNaoElegivel
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        elegivel, motivoNaoElegivel, comentarios
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await runQuery(sql, [
       pacienteId, nome, status, estudo, data, encaminhador,
       tcleAgendado, tcleAssinado, dataAssinatura,
-      elegivel, motivoNaoElegivel
+      elegivel, motivoNaoElegivel, comentarios
     ]);
 
     // Salvar documentos se houver
@@ -185,20 +230,25 @@ app.post('/api/pacientes', requireAuth, upload.array('documentos', 10), async (r
 });
 
 // PUT /api/pacientes/:id - Atualizar paciente
-app.put('/api/pacientes/:id', requireAuth, upload.array('documentos', 10), async (req, res) => {
+app.put('/api/pacientes/:id', requireUser, upload.array('documentos', 10), async (req, res) => {
   try {
     const { id } = req.params;
     const {
       nome, status, estudo, data, encaminhador,
       tcleAgendado, tcleAssinado, dataAssinatura,
-      elegivel, motivoNaoElegivel
+      elegivel, motivoNaoElegivel, comentarios
     } = req.body;
+
+    const allowedStatuses = ['Triagem','Elegível','Randomizado','Não elegível'];
+    const allowedStudies = ['Tropion - 8','M-18','Evoke-4','Codebrak','Benito','KER-50','M-20','Symphony'];
+    if(!allowedStatuses.includes(status)) return res.status(400).json({error:'Status inválido'});
+    if(!allowedStudies.includes(estudo)) return res.status(400).json({error:'Estudo inválido'});
 
     const sql = `
       UPDATE pacientes SET
         nome = ?, status = ?, estudo = ?, data = ?, encaminhador = ?,
         tcleAgendado = ?, tcleAssinado = ?, dataAssinatura = ?,
-        elegivel = ?, motivoNaoElegivel = ?,
+        elegivel = ?, motivoNaoElegivel = ?, comentarios = ?,
         updatedAt = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
@@ -206,7 +256,7 @@ app.put('/api/pacientes/:id', requireAuth, upload.array('documentos', 10), async
     const result = await runQuery(sql, [
       nome, status, estudo, data, encaminhador,
       tcleAgendado, tcleAssinado, dataAssinatura,
-      elegivel, motivoNaoElegivel, id
+      elegivel, motivoNaoElegivel, comentarios, id
     ]);
 
     if (result.changes === 0) {
@@ -239,7 +289,7 @@ app.put('/api/pacientes/:id', requireAuth, upload.array('documentos', 10), async
 });
 
 // DELETE /api/pacientes/:id - Deletar paciente
-app.delete('/api/pacientes/:id', requireAuth, async (req, res) => {
+app.delete('/api/pacientes/:id', requireUser, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -272,7 +322,7 @@ app.delete('/api/pacientes/:id', requireAuth, async (req, res) => {
 });
 
 // GET /api/documentos/:pacienteId - Listar documentos de um paciente
-app.get('/api/documentos/:pacienteId', async (req, res) => {
+app.get('/api/documentos/:pacienteId', requireUser, async (req, res) => {
   try {
     const { pacienteId } = req.params;
     const sql = convertQuery('SELECT * FROM documentos WHERE paciente_id = ?');
@@ -285,7 +335,7 @@ app.get('/api/documentos/:pacienteId', async (req, res) => {
 });
 
 // DELETE /api/documentos/:id - Deletar documento
-app.delete('/api/documentos/:id', requireAuth, async (req, res) => {
+app.delete('/api/documentos/:id', requireUser, async (req, res) => {
   try {
     const { id } = req.params;
     const sql = convertQuery('SELECT caminho_arquivo FROM documentos WHERE id = ?');
@@ -311,7 +361,7 @@ app.delete('/api/documentos/:id', requireAuth, async (req, res) => {
 });
 
 // POST /api/configuracoes/logo - Salvar logo
-app.post('/api/configuracoes/logo', requireAuth, async (req, res) => {
+app.post('/api/configuracoes/logo', requireAdmin, async (req, res) => {
   try {
     const { logoData } = req.body;
     
@@ -329,7 +379,7 @@ app.post('/api/configuracoes/logo', requireAuth, async (req, res) => {
 });
 
 // GET /api/configuracoes/logo - Buscar logo
-app.get('/api/configuracoes/logo', async (req, res) => {
+app.get('/api/configuracoes/logo', requireUser, async (req, res) => {
   try {
     const sql = convertQuery('SELECT valor FROM configuracoes WHERE chave = ?');
     const row = await db.get(sql, ['logo']);
@@ -363,4 +413,123 @@ process.on('SIGINT', async () => {
     db.close();
   }
   process.exit(0);
+});
+// ==================== AUTENTICAÇÃO ====================
+
+app.post('/api/auth/register', async (req,res)=>{
+  try{
+    const {nome,email,login,senha} = req.body;
+    if(!nome||!login||!senha) return res.status(400).json({error:'Dados inválidos'});
+    const sql = usePostgres
+      ? `INSERT INTO usuarios (nome,email,login,senha_hash) VALUES ($1,$2,$3,$4) RETURNING id`
+      : `INSERT INTO usuarios (nome,email,login,senha_hash) VALUES (?,?,?,?)`;
+    if(usePostgres){
+      const r = await db.pool.query(sql,[nome,email||null,login,hashPassword(senha)]);
+      return res.status(201).json({message:'Cadastro enviado para aprovação', id:r.rows[0].id});
+    } else {
+      await new Promise((resolve,reject)=>{ db.run(sql,[nome,email||null,login,hashPassword(senha)], function(err){ if(err) reject(err); else resolve(); }); });
+      return res.status(201).json({message:'Cadastro enviado para aprovação'});
+    }
+  }catch(e){
+    return res.status(500).json({error:'Erro ao cadastrar'});
+  }
+});
+
+app.post('/api/auth/login', async (req,res)=>{
+  try{
+    const {login,senha} = req.body;
+    if(!login||!senha) return res.status(400).json({error:'Dados inválidos'});
+    const sql = usePostgres ? `SELECT * FROM usuarios WHERE login = $1` : `SELECT * FROM usuarios WHERE login = ?`;
+    const user = await db.get(sql,[login]);
+    if(!user) return res.status(404).json({error:'Usuário não encontrado'});
+    const ok = (user.senha_hash === hashPassword(senha));
+    if(!ok) return res.status(403).json({error:'Credenciais inválidas'});
+    if(user.aprovado===false || user.aprovado===0) return res.status(403).json({error:'Usuário não aprovado'});
+    const token = await createSession(user.id);
+    return res.json({token, user:{id:user.id,nome:user.nome,role:user.role}});
+  }catch(e){
+    return res.status(500).json({error:'Erro ao autenticar'});
+  }
+});
+
+app.post('/api/auth/admin-login', (req,res)=>{
+  const {senha} = req.body;
+  if(!senha) return res.status(400).json({error:'Dados inválidos'});
+  if(senha !== ADMIN_PASSWORD) return res.status(403).json({error:'Senha incorreta'});
+  (async()=>{
+    let admin;
+    if(usePostgres){
+      const r = await db.pool.query(`SELECT * FROM usuarios WHERE role='admin' LIMIT 1`);
+      admin = r.rows[0];
+    } else {
+      admin = await db.get(`SELECT * FROM usuarios WHERE role='admin' LIMIT 1`, []);
+    }
+    if(!admin){
+      if(usePostgres){
+        const r2 = await db.pool.query(`INSERT INTO usuarios (nome,login,senha_hash,role,aprovado) VALUES ($1,$2,$3,'admin',TRUE) RETURNING id`, ['Administrador','admin',hashPassword(senha)]);
+        admin = { id: r2.rows[0].id, nome:'Administrador', role:'admin'};
+      } else {
+        await new Promise((resolve,reject)=>{ db.run(`INSERT INTO usuarios (nome,login,senha_hash,role,aprovado) VALUES (?,?,?,?,1)`, ['Administrador','admin',hashPassword(senha),'admin'], (err)=>{ if(err) reject(err); else resolve(); }); });
+        admin = await db.get(`SELECT * FROM usuarios WHERE role='admin' LIMIT 1`, []);
+      }
+    }
+    const token = await createSession(admin.id);
+    res.json({token, user:{id:admin.id,nome:admin.nome,role:'admin'}});
+  })().catch(()=>res.status(500).json({error:'Erro ao autenticar admin'}));
+});
+
+app.get('/api/auth/me', requireUser, (req,res)=>{ res.json({id:req.user.id,nome:req.user.nome,role:req.user.role}); });
+
+app.get('/api/admin/usuarios', requireAdmin, async (req,res)=>{
+  try{
+    const sql = usePostgres ? `SELECT id,nome,email,login,role,aprovado,createdAt FROM usuarios ORDER BY createdAt DESC` : `SELECT id,nome,email,login,role,aprovado,createdAt FROM usuarios ORDER BY createdAt DESC`;
+    const rows = await db.all(sql,[]);
+    res.json(rows);
+  }catch(e){ res.status(500).json({error:'Erro ao listar usuários'}); }
+});
+
+app.post('/api/admin/usuarios/:id/aprovar', requireAdmin, async (req,res)=>{
+  try{
+    const {id} = req.params;
+    if(usePostgres){
+      await db.pool.query(`UPDATE usuarios SET aprovado=TRUE, updatedAt=NOW() WHERE id=$1`, [id]);
+    } else {
+      await new Promise((resolve,reject)=>{ db.run(`UPDATE usuarios SET aprovado=1, updatedAt=CURRENT_TIMESTAMP WHERE id=?`, [id], (err)=>{ if(err) reject(err); else resolve(); }); });
+    }
+    res.json({message:'Usuário aprovado'});
+  }catch(e){ res.status(500).json({error:'Erro ao aprovar usuário'}); }
+});
+
+// ==================== AGENDAMENTOS ====================
+
+app.get('/api/agendamentos', requireUser, async (req,res)=>{
+  try{
+    const sql = convertQuery('SELECT * FROM agendamentos ORDER BY data ASC');
+    const rows = await db.all(sql, []);
+    res.json(rows);
+  }catch(e){ res.status(500).json({error:'Erro ao buscar agendamentos'}); }
+});
+
+app.post('/api/agendamentos', requireUser, async (req,res)=>{
+  try{
+    const {paciente_id, data, descricao} = req.body;
+    const sql = usePostgres
+      ? `INSERT INTO agendamentos (paciente_id,data,descricao) VALUES ($1,$2,$3) RETURNING id`
+      : `INSERT INTO agendamentos (paciente_id,data,descricao) VALUES (?,?,?)`;
+    if(usePostgres){
+      const r = await db.pool.query(sql,[paciente_id||null,data,descricao||null]);
+      res.status(201).json({message:'Agendamento criado', id:r.rows[0].id});
+    } else {
+      await new Promise((resolve,reject)=>{ db.run(sql,[paciente_id||null,data,descricao||null], function(err){ if(err) reject(err); else resolve(); }); });
+      res.status(201).json({message:'Agendamento criado'});
+    }
+  }catch(e){ res.status(500).json({error:'Erro ao criar agendamento'}); }
+});
+
+app.delete('/api/agendamentos/:id', requireUser, async (req,res)=>{
+  try{
+    const {id} = req.params;
+    await runQuery('DELETE FROM agendamentos WHERE id = ?', [id]);
+    res.json({message:'Agendamento removido'});
+  }catch(e){ res.status(500).json({error:'Erro ao remover agendamento'}); }
 });

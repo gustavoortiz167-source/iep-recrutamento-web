@@ -136,7 +136,7 @@ async function createSession(usuarioId){
 }
 
 async function notifyAdminNewUser({nome, login, email}){
-  const to = 'gustavoortiz167@gmail.com';
+  const to = process.env.ADMIN_NOTIFY_EMAIL || ADMIN_EMAIL || 'gustavo.ortiz@iepsaolucas.com.br';
   const subject = 'Novo cadastro pendente de aprovação - IEP Recrutamento';
   const text = `Novo usuário cadastrado:\nNome: ${nome}\nLogin: ${login}\nEmail: ${email||'-'}\nAcesse o painel de administração para aprovar.`;
   try{
@@ -148,7 +148,7 @@ async function notifyAdminNewUser({nome, login, email}){
       const transporter = nodemailer.createTransport({ host, port, secure: port===465, auth:{ user, pass } });
       await transporter.sendMail({ from: user, to, subject, text });
     } else {
-      console.log('🔔 Novo cadastro:', {nome, login, email});
+      console.log('🔔 Novo cadastro (SMTP não configurado):', {nome, login, email, to});
     }
   }catch(e){ console.error('Erro ao enviar email de novo cadastro:', e); }
 }

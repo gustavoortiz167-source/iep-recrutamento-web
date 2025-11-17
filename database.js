@@ -63,6 +63,19 @@ if (usePostgres) {
       `);
       console.log('✅ Tabela "documentos" pronta');
 
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS agendamentos (
+          id TEXT PRIMARY KEY,
+          paciente_id TEXT NOT NULL,
+          data TEXT NOT NULL,
+          descricao TEXT,
+          createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('✅ Tabela "agendamentos" pronta');
+
       // Tabela de configurações
       await pool.query(`
         CREATE TABLE IF NOT EXISTS configuracoes (
@@ -167,6 +180,21 @@ if (usePostgres) {
     `, (err) => {
       if (err) console.error('❌ Erro ao criar tabela documentos:', err);
       else console.log('✅ Tabela "documentos" pronta');
+    });
+
+    sqliteDb.run(`
+      CREATE TABLE IF NOT EXISTS agendamentos (
+        id TEXT PRIMARY KEY,
+        paciente_id TEXT NOT NULL,
+        data TEXT NOT NULL,
+        descricao TEXT,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
+      )
+    `, (err) => {
+      if (err) console.error('❌ Erro ao criar tabela agendamentos:', err);
+      else console.log('✅ Tabela "agendamentos" pronta');
     });
 
     sqliteDb.run(`

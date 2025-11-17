@@ -340,6 +340,42 @@ app.get('/api/configuracoes/logo', async (req, res) => {
   }
 });
 
+app.get('/api/agendamentos', async (req, res) => {
+  try {
+    const rows = await db.all('SELECT * FROM agendamentos ORDER BY data ASC');
+    res.json(rows);
+  } catch (err) {
+    console.error('Erro ao buscar agendamentos:', err);
+    res.status(500).json({ error: 'Erro ao buscar agendamentos' });
+  }
+});
+
+app.post('/api/agendamentos', requireAuth, async (req, res) => {
+  try {
+    const { paciente_id, data, descricao } = req.body;
+    if (!paciente_id || !data) { return res.status(400).json({ error: 'paciente_id e data são obrigatórios' }); }
+    const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const sql = 'INSERT INTO agendamentos (id, paciente_id, data, descricao) VALUES (?, ?, ?, ?)';
+    await runQuery(sql, [id, paciente_id, data, descricao]);
+    res.status(201).json({ id, paciente_id, data, descricao });
+  } catch (err) {
+    console.error('Erro ao criar agendamento:', err);
+    res.status(500).json({ error: 'Erro ao criar agendamento' });
+  }
+});
+
+app.delete('/api/agendamentos/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await runQuery('DELETE FROM agendamentos WHERE id = ?', [id]);
+    if (result.changes === 0) { return res.status(404).json({ error: 'Agendamento não encontrado' }); }
+    res.json({ message: 'Agendamento removido' });
+  } catch (err) {
+    console.error('Erro ao remover agendamento:', err);
+    res.status(500).json({ error: 'Erro ao remover agendamento' });
+  }
+});
+
 // ==================== INICIAR SERVIDOR ====================
 
 app.listen(PORT, () => {

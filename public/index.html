@@ -173,6 +173,23 @@
       <div id="emptyMsg" class="muted mt8"></div>
     </div>
   </div>
+  
+  <!-- AGENDA -->
+  <div class="section" id="agendaSection">
+    <h2>Agenda</h2>
+    <div class="body">
+      <div class="grid g4" style="align-items:end">
+        <div class="field"><span class="muted">Mês</span><input id="agMonth" type="month" onchange="renderCalendar()"/></div>
+        <div class="field"><span class="muted">Paciente</span><select id="agPacienteSel"></select></div>
+        <div class="field"><span class="muted">Data</span><input id="agData" type="date"/></div>
+        <div class="field"><span class="muted">Descrição</span><input id="agDesc" placeholder="Ex.: Consulta TCLE"/></div>
+        <div class="field" style="grid-column: span 4; display:flex; justify-content:flex-end"><button class="btn" onclick="addAgendamento()">Adicionar</button></div>
+      </div>
+      <div id="calendarGrid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:12px"></div>
+      <div class="muted" style="margin-top:12px">Agendamentos</div>
+      <div id="agendaList" style="margin-top:6px"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -644,10 +661,186 @@ async function loadPacientes(){
 async function init(){
   await loadLogo();
   await loadPacientes();
+  renderPatientSelect();
+  await loadAgendamentos();
+  const m = new Date(); byId('agMonth') && (byId('agMonth').value = `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`);
   showToast("Sistema carregado com sucesso!");
   refreshUI();
 }
-init();
+window.addEventListener('load', init);
+</script>
+<script>
+let AUTH_TOKEN = localStorage.getItem('auth_token')||'';
+let CURRENT_USER = null;
+async function ensureAuth(){ updateAuthUI(); }
+
+async function showAuthModal(){
+  const overlay = document.createElement('div');
+  overlay.style.position='fixed'; overlay.style.inset='0'; overlay.style.background='rgba(0,0,0,.6)'; overlay.style.zIndex='9999';
+  overlay.innerHTML = `
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;color:#000;min-width:340px;padding:20px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3)">
+      <h3 style="margin:0 0 14px">Acesso</h3>
+      <div class="field"><span class="muted">Login</span><input id="authLogin"/></div>
+      <div class="field"><span class="muted">Senha</span><input id="authSenha" type="password"/></div>
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:12px">
+        <button class="btn btn-ghost" id="btnRegister">Cadastrar</button>
+        <button class="btn" id="btnLogin">Entrar</button>
+      </div>
+      <div class="hint" style="margin-top:8px">Após cadastro, um administrador precisa aprovar seu acesso.</div>
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:8px">
+        <button class="btn btn-ghost" id="btnAdmin">Entrar como administrador</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  byId('btnLogin').onclick = async ()=>{
+    const login = byId('authLogin').value.trim(); const senha = byId('authSenha').value;
+    try{
+      const res = await fetch(`${API_BASE}/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({login,senha}) });
+      const data = await res.json(); if(!res.ok){ showToast(data.error||'Falha no login', true); return; }
+      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove(); updateAuthUI();
+    }catch(e){ showToast('Erro ao autenticar', true); }
+  };
+  byId('btnRegister').onclick = async ()=>{
+    const login = byId('authLogin').value.trim(); const senha = byId('authSenha').value; const nome = login;
+    try{
+      const res = await fetch(`${API_BASE}/auth/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nome,login,senha}) });
+      const data = await res.json(); if(!res.ok){ showToast(data.error||'Erro no cadastro', true); return; }
+      showToast('Cadastro enviado para aprovação');
+    }catch(e){ showToast('Erro no cadastro', true); }
+  };
+  byId('btnAdmin').onclick = async ()=>{
+    const senha = byId('authSenha').value; try{
+      const res = await fetch(`${API_BASE}/auth/admin-login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({senha}) });
+      const data = await res.json(); if(!res.ok){ showToast(data.error||'Falha admin', true); return; }
+      AUTH_TOKEN = data.token; localStorage.setItem('auth_token', AUTH_TOKEN); CURRENT_USER = data.user; overlay.remove(); updateAuthUI();
+    }catch(e){ showToast('Erro admin', true); }
+  };
+}
+
+function updateAuthUI(){
+  const badge = byId('userBadge');
+  if(CURRENT_USER){ badge.textContent = `Usuário: ${CURRENT_USER.nome} (${CURRENT_USER.role})`; }
+  else { badge.textContent = ''; }
+}
+
+function logout(){ AUTH_TOKEN=''; CURRENT_USER=null; localStorage.removeItem('auth_token'); updateAuthUI(); }
+
+function promptEditPassword(){ const p = window.prompt('Informe a senha de edição'); if(p!==null){ localStorage.setItem('edit_password', p); showToast('Senha de edição definida'); } }
+
+async function loadAgendamentos(){
+  try{ const res = await fetch(`${API_BASE}/agendamentos`, { headers: getAuthHeaders() }); if(!res.ok) return []; AGENDAMENTOS = await res.json(); renderAgenda(); return AGENDAMENTOS; }catch(e){ return []; }
+}
+
+function showUpcomingReminders(){
+  const now = new Date(); const upcoming = (AGENDAMENTOS||[]).filter(a=> new Date(a.data) > now);
+  if(upcoming.length){ showToast(`Há ${upcoming.length} agendamentos futuros`); }
+}
+
+let AGENDAMENTOS = [];
+function renderAgenda(){
+  const sec = document.getElementById('agendaSection'); if(!sec) return;
+  const list = (AGENDAMENTOS||[]).map(a=>`<div>📅 ${a.data} — ${esc(a.descricao||'')} ${a.paciente_id?`(Paciente: ${esc(getPatientName(a.paciente_id))})`:''} <button class="btn btn-ghost" onclick="deleteAgendamento('${a.id}')">Excluir</button></div>`).join('');
+  document.getElementById('agendaList').innerHTML = list || '(sem agendamentos)';
+  renderCalendar();
+}
+
+async function addAgendamento(){
+  const data = byId('agData').value; const descricao = byId('agDesc').value.trim(); const paciente_id = byId('agPacienteSel').value;
+  if(!data){ showToast('Informe a data do agendamento', true); return; }
+  if(!paciente_id){ showToast('Selecione o paciente', true); return; }
+  const res = await fetch(`${API_BASE}/agendamentos`, { method:'POST', headers: { ...getAuthHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({paciente_id, data, descricao}) });
+  const d = await res.json(); if(!res.ok){ if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return; } showToast(d.error||'Erro ao agendar', true); return; }
+  byId('agData').value=''; byId('agDesc').value=''; byId('agPacienteSel').value='';
+  await loadAgendamentos();
+  showToast('Agendamento criado');
+}
+
+async function deleteAgendamento(id){
+  if(!id) return; if(!confirm('Excluir este agendamento?')) return;
+  const res = await fetch(`${API_BASE}/agendamentos/${id}`, { method:'DELETE', headers: getAuthHeaders() });
+  const d = await res.json().catch(()=>({})); if(!res.ok){ if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return; } showToast(d.error||'Erro ao remover agendamento', true); return; }
+  await loadAgendamentos(); showToast('Agendamento removido');
+}
+
+function renderCalendar(){
+  const grid = document.getElementById('calendarGrid'); if(!grid) return;
+  const sel = document.getElementById('agMonth').value;
+  const now = new Date();
+  const y = sel ? Number(sel.split('-')[0]) : now.getFullYear();
+  const m = sel ? Number(sel.split('-')[1]) : (now.getMonth()+1);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const firstDay = new Date(y, m-1, 1).getDay();
+  const items = [];
+  for(let i=0;i<firstDay;i++){ items.push('<div></div>'); }
+  const fmt = (n)=>String(n).padStart(2,'0');
+  const map = {};
+  (AGENDAMENTOS||[]).forEach(a=>{ const d = new Date(a.data); if(d.getFullYear()===y && (d.getMonth()+1)===m){ const key = `${y}-${fmt(m)}-${fmt(d.getDate())}`; map[key] = (map[key]||[]).concat([a]); } });
+  for(let d=1; d<=daysInMonth; d++){
+    const key = `${y}-${fmt(m)}-${fmt(d)}`;
+    const pts = (map[key]||[]).length;
+    const badge = pts ? `<span style="background:#1E90FF;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;float:right">${pts}</span>` : '';
+    items.push(`<div style="border:1px solid #eee;border-radius:8px;padding:8px;min-height:64px;cursor:pointer" onclick="openDayModal('${key}')">${badge}<div style="font-weight:600">${d}</div><div style="margin-top:6px;font-size:11px;color:#555">${pts? 'Ver agendamentos' : 'Adicionar'}</div></div>`);
+  }
+  grid.innerHTML = items.join('');
+}
+
+function openDayModal(dateStr){
+  const overlay = document.createElement('div');
+  overlay.style.position='fixed'; overlay.style.inset='0'; overlay.style.background='rgba(0,0,0,.6)'; overlay.style.zIndex='9999';
+  const dayItems = (AGENDAMENTOS||[]).filter(a=>{
+    const d = new Date(a.data); const fmt=(n)=>String(n).padStart(2,'0'); const key = `${d.getFullYear()}-${fmt(d.getMonth()+1)}-${fmt(d.getDate())}`; return key===dateStr;
+  });
+  const options = (DB||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join('');
+  overlay.innerHTML = `
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;color:#000;min-width:420px;padding:18px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3)">
+      <h3 style="margin:0 0 12px">Agenda do dia ${dateStr}</h3>
+      <div style="max-height:240px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:8px;margin-bottom:12px">
+        ${(dayItems.length? dayItems.map(a=>`<div style='display:flex;justify-content:space-between;align-items:center;margin:4px 0'><span>📅 ${esc(a.descricao||'')} — ${esc(getPatientName(a.paciente_id))}</span><button class='btn btn-ghost' onclick="deleteAgendamento('${a.id}'); setTimeout(()=>{ document.body.removeChild(overlay); openDayModal('${dateStr}'); },400)">Excluir</button></div>`).join('') : '<div class=muted>(sem agendamentos)</div>')}
+      </div>
+      <div class="grid g2" style="gap:8px">
+        <div class="field"><span class="muted">Paciente</span><select id="modalPaciente"><option value="">Selecione…</option>${options}</select></div>
+        <div class="field"><span class="muted">Descrição</span><input id="modalDesc" placeholder="Ex.: Consulta TCLE"/></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button class="btn btn-ghost" onclick="document.body.removeChild(document.querySelector('.day-modal-overlay'))">Fechar</button>
+        <button class="btn" onclick="(async()=>{ const pid = byId('modalPaciente').value; const desc = byId('modalDesc').value.trim(); if(!pid){ showToast('Selecione o paciente', true); return; } const res = await fetch(API_BASE + '/agendamentos', { method:'POST', headers:{...getAuthHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify({paciente_id: pid, data: dateStr, descricao: desc}) }); const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao agendar', true); return; } await loadAgendamentos(); document.body.removeChild(overlay); openDayModal(dateStr); showToast('Agendado'); })()">Adicionar</button>
+      </div>
+    </div>
+  `;
+  overlay.className = 'day-modal-overlay';
+  document.body.appendChild(overlay);
+}
+
+function getPatientName(id){ const p = (DB||[]).find(x=>x.id===id); return p ? p.nome : id; }
+function renderPatientSelect(){
+  const sel = byId('agPacienteSel'); if(!sel) return; sel.innerHTML = '<option value="">Selecione…</option>' + (DB||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join('');
+}
+function forceLoadPacientes(){ loadPacientes().then(()=>{ refreshUI(); showToast('Pacientes atualizados'); byId('pacCount').textContent = DB.length ? `Total de pacientes: ${DB.length}` : 'Nenhum paciente cadastrado'; }); }
+const updCounts = ()=>{ const n = DB.length; const txt = n ? `Total de pacientes: ${n}` : 'Nenhum paciente cadastrado'; const a = byId('pacCount'); if(a) a.textContent = txt; const b = byId('pacCountTable'); if(b) b.textContent = txt; };
+const oldLoadPacientes = loadPacientes;
+loadPacientes = async function(){ await oldLoadPacientes(); updCounts(); };
+
+async function loadUsuarios(){
+  try{
+    const res = await fetch(`${API_BASE}/admin/usuarios`, { headers: getAuthHeaders() });
+    const list = await res.json();
+    const html = list.map(u=>{
+      const st = (u.aprovado? 'aprovado' : 'pendente');
+      const btn = u.aprovado ? '' : `<button class="btn" onclick="aprovarUsuario(${u.id})">Aprovar</button>`;
+      return `<div>${esc(u.nome)} (${esc(u.login)}) — ${st} ${btn}</div>`;
+    }).join('');
+    byId('usuariosList').innerHTML = html || '(sem usuários)';
+  }catch(e){ byId('usuariosList').textContent='Erro ao carregar usuários'; }
+}
+
+async function aprovarUsuario(id){
+  try{
+    const res = await fetch(`${API_BASE}/admin/usuarios/${id}/aprovar`, { method:'POST', headers: getAuthHeaders() });
+    const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao aprovar', true); return; }
+    await loadUsuarios(); showToast('Usuário aprovado');
+  }catch(e){ showToast('Erro ao aprovar', true); }
+}
 </script>
 </body>
 </html>

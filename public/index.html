@@ -242,7 +242,8 @@ async function apiGetPacientes(){
   try{
     const res = await fetch(`${API_BASE}/pacientes`);
     if(!res.ok) throw new Error('Erro ao carregar pacientes');
-    return await res.json();
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   }catch(e){
     console.error('Erro ao buscar pacientes:', e);
     showToast('Erro ao carregar dados do servidor', true);

@@ -350,7 +350,7 @@ app.get('/api/agendamentos', async (req, res) => {
   }
 });
 
-app.post('/api/agendamentos', requireAuth, async (req, res) => {
+app.post('/api/agendamentos', async (req, res) => {
   try {
     const { paciente_id, data, descricao } = req.body;
     if (!paciente_id || !data) { return res.status(400).json({ error: 'paciente_id e data são obrigatórios' }); }
@@ -364,7 +364,7 @@ app.post('/api/agendamentos', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/api/agendamentos/:id', requireAuth, async (req, res) => {
+app.delete('/api/agendamentos/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await runQuery('DELETE FROM agendamentos WHERE id = ?', [id]);

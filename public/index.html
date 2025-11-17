@@ -814,7 +814,7 @@ function openDayModal(dateStr){
 
 function getPatientName(id){ const p = (DB||[]).find(x=>x.id===id); return p ? p.nome : id; }
 function renderPatientSelect(){
-  const sel = byId('agPacienteSel'); if(!sel) return; sel.innerHTML = '<option value="">Selecione…</option>' + (DB||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join('');
+  const sel = byId('agPacienteSel'); if(!sel) return; const list = Array.isArray(DB) ? DB : []; sel.innerHTML = '<option value="">Selecione…</option>' + list.map(p=>`<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join('');
 }
 function forceLoadPacientes(){ loadPacientes().then(()=>{ refreshUI(); showToast('Pacientes atualizados'); byId('pacCount').textContent = DB.length ? `Total de pacientes: ${DB.length}` : 'Nenhum paciente cadastrado'; }); }
 const updCounts = ()=>{ const n = DB.length; const txt = n ? `Total de pacientes: ${n}` : 'Nenhum paciente cadastrado'; const a = byId('pacCount'); if(a) a.textContent = txt; const b = byId('pacCountTable'); if(b) b.textContent = txt; };

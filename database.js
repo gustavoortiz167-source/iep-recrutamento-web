@@ -145,6 +145,7 @@ if (usePostgres) {
 
   // Criar tabelas SQLite
   sqliteDb.serialize(() => {
+    sqliteDb.run('PRAGMA foreign_keys = ON');
     sqliteDb.run(`
       CREATE TABLE IF NOT EXISTS pacientes (
         id TEXT PRIMARY KEY,

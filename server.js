@@ -30,6 +30,32 @@ async function runQuery(sql, params = []) {
   }
 }
 
+async function fetchAll(sql, params = []){
+  const convertedSql = convertQuery(sql);
+  if (usePostgres) {
+    return db.all(convertedSql, params);
+  } else {
+    return new Promise((resolve, reject) => {
+      db.all(convertedSql, params, (err, rows) => {
+        if (err) reject(err); else resolve(rows);
+      });
+    });
+  }
+}
+
+async function fetchGet(sql, params = []){
+  const convertedSql = convertQuery(sql);
+  if (usePostgres) {
+    return db.get(convertedSql, params);
+  } else {
+    return new Promise((resolve, reject) => {
+      db.get(convertedSql, params, (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'iep2025@seguro';
@@ -104,7 +130,7 @@ function requireAuth(req, res, next) {
 // GET /api/pacientes - Listar todos os pacientes
 app.get('/api/pacientes', async (req, res) => {
   try {
-    const rows = await db.all('SELECT * FROM pacientes ORDER BY data DESC');
+    const rows = await fetchAll('SELECT * FROM pacientes ORDER BY data DESC');
     res.json(rows);
   } catch (err) {
     console.error('Erro ao buscar pacientes:', err);
@@ -116,15 +142,15 @@ app.get('/api/pacientes', async (req, res) => {
 app.get('/api/pacientes/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const sql = convertQuery('SELECT * FROM pacientes WHERE id = ?');
-    const row = await db.get(sql, [id]);
+    const sql = 'SELECT * FROM pacientes WHERE id = ?';
+    const row = await fetchGet(sql, [id]);
     
     if (!row) {
       return res.status(404).json({ error: 'Paciente não encontrado' });
     }
 
-    const docSql = convertQuery('SELECT * FROM documentos WHERE paciente_id = ?');
-    const docs = await db.all(docSql, [id]);
+    const docSql = 'SELECT * FROM documentos WHERE paciente_id = ?';
+    const docs = await fetchAll(docSql, [id]);
     
     res.json({ ...row, documentos: docs });
   } catch (err) {
@@ -275,8 +301,8 @@ app.delete('/api/pacientes/:id', requireAuth, async (req, res) => {
 app.get('/api/documentos/:pacienteId', async (req, res) => {
   try {
     const { pacienteId } = req.params;
-    const sql = convertQuery('SELECT * FROM documentos WHERE paciente_id = ?');
-    const rows = await db.all(sql, [pacienteId]);
+    const sql = 'SELECT * FROM documentos WHERE paciente_id = ?';
+    const rows = await fetchAll(sql, [pacienteId]);
     res.json(rows);
   } catch (err) {
     console.error('Erro ao buscar documentos:', err);
@@ -331,8 +357,8 @@ app.post('/api/configuracoes/logo', requireAuth, async (req, res) => {
 // GET /api/configuracoes/logo - Buscar logo
 app.get('/api/configuracoes/logo', async (req, res) => {
   try {
-    const sql = convertQuery('SELECT valor FROM configuracoes WHERE chave = ?');
-    const row = await db.get(sql, ['logo']);
+    const sql = 'SELECT valor FROM configuracoes WHERE chave = ?';
+    const row = await fetchGet(sql, ['logo']);
     res.json({ logo: row ? row.valor : null });
   } catch (err) {
     console.error('Erro ao buscar logo:', err);
@@ -342,7 +368,7 @@ app.get('/api/configuracoes/logo', async (req, res) => {
 
 app.get('/api/agendamentos', async (req, res) => {
   try {
-    const rows = await db.all('SELECT * FROM agendamentos ORDER BY data ASC');
+    const rows = await fetchAll('SELECT * FROM agendamentos ORDER BY data ASC');
     res.json(rows);
   } catch (err) {
     console.error('Erro ao buscar agendamentos:', err);

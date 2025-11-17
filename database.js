@@ -70,8 +70,7 @@ if (usePostgres) {
           data TEXT NOT NULL,
           descricao TEXT,
           createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
+          updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
       console.log('✅ Tabela "agendamentos" pronta');
@@ -190,8 +189,7 @@ if (usePostgres) {
         data TEXT NOT NULL,
         descricao TEXT,
         createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `, (err) => {
       if (err) console.error('❌ Erro ao criar tabela agendamentos:', err);

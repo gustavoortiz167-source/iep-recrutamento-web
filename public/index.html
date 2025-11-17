@@ -377,9 +377,9 @@ async function loadLogo(){
   try{
     const res = await fetch(`${API_BASE}/configuracoes/logo`);
     const data = await res.json();
-    byId("logoImg").src = data.logo || "https://upload.wikimedia.org/wikipedia/commons/3/3f/Transparent_placeholder.png";
+    byId("logoImg").src = data.logo || "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAGgwJ/o7wzWwAAAABJRU5ErkJggg==";
   }catch(e){
-    byId("logoImg").src = "https://upload.wikimedia.org/wikipedia/commons/3/3f/Transparent_placeholder.png";
+    byId("logoImg").src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAGgwJ/o7wzWwAAAABJRU5ErkJggg==";
   }
 }
 

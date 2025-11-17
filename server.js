@@ -58,7 +58,7 @@ async function fetchGet(sql, params = []){
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'iep2025@seguro';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 
 // Middleware
 app.use(cors());
@@ -105,25 +105,7 @@ const upload = multer({
 
 // ==================== MIDDLEWARE DE AUTENTICAÇÃO ====================
 
-function requireAuth(req, res, next) {
-  const password = req.headers['x-admin-password'] || req.body.password || req.query.password;
-  
-  if (!password) {
-    return res.status(401).json({ 
-      error: 'Senha necessária para esta operação',
-      requireAuth: true 
-    });
-  }
-  
-  if (password !== ADMIN_PASSWORD) {
-    return res.status(403).json({ 
-      error: 'Senha incorreta',
-      requireAuth: true 
-    });
-  }
-  
-  next();
-}
+function requireAuth(req, res, next) { next(); }
 
 // ==================== ROTAS DA API ====================
 
@@ -407,7 +389,7 @@ app.delete('/api/agendamentos/:id', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor IEP Recrutamento rodando!`);
   console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`🔐 ADMIN_PASSWORD configurada`);
+  console.log(`🔓 Acesso aberto (sem senha para operações)`);
   if (usePostgres) {
     console.log(`✅ PostgreSQL conectado (dados persistentes)`);
   } else {

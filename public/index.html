@@ -526,7 +526,7 @@ async function openDocumento(id){
     if(!res.ok){ showToast("Erro ao buscar documentos", true); return; }
     const docs = await res.json();
     if(!docs || docs.length===0){ showToast("Cadastro sem documento anexado", true); return; }
-    const doc = docs[docs.length-1];
+    const doc = docs[0];
     const url = `/uploads/${doc.caminho_arquivo}`;
     window.open(url, '_blank');
   }catch(e){

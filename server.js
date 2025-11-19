@@ -65,7 +65,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Criar diretório de uploads se não existir
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -292,7 +292,7 @@ app.delete('/api/pacientes/:id', requireAuth, async (req, res) => {
 app.get('/api/documentos/:pacienteId', async (req, res) => {
   try {
     const { pacienteId } = req.params;
-    const sql = 'SELECT * FROM documentos WHERE paciente_id = ?';
+    const sql = 'SELECT * FROM documentos WHERE paciente_id = ? ORDER BY uploadedAt DESC, id DESC';
     const rows = await fetchAll(sql, [pacienteId]);
     res.json(rows);
   } catch (err) {

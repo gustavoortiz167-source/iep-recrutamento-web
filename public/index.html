@@ -71,7 +71,17 @@
     <h2>Cadastro de Paciente</h2>
     <div class="body grid g4" id="patientForm">
       <div class="field"><span class="muted">Nome completo</span><input id="nome" placeholder="Ex.: João da Silva"/></div>
-      <div class="field"><span class="muted">Status</span><input id="status" placeholder="Ex.: Triagem" list="statusList"/><datalist id="statusList"><option>Triagem</option><option>Elegível</option><option>Randomizado</option><option>Não Elegível</option></datalist></div>
+      <div class="field" id="statusField"><span class="muted">Status</span>
+        <select id="statusSel" onchange="toggleStatusCustom()">
+          <option value="">Selecione…</option>
+          <option>Triagem</option>
+          <option>Elegível</option>
+          <option>Randomizado</option>
+          <option>Não Elegível</option>
+          <option>Outro</option>
+        </select>
+        <input id="statusCustom" placeholder="Escreva o status" style="margin-top:6px; display:none"/>
+      </div>
       <div class="field"><span class="muted">Estudo</span><select id="estudo"><option value="">Selecione…</option><option>Tropion-8</option><option>Evoke-4</option><option>Benito</option><option>Codebreak</option><option>M-18</option><option>Ker-50</option><option>Symphony</option><option>M-20</option></select></div>
       <div class="field"><span class="muted">Data (cadastro)</span><input id="data" type="date"/></div>
 
@@ -392,6 +402,7 @@ function dataset(){
 /* ======= FORM ======= */
 function toggleOutroEnc(){ byId("wrapOutroEnc").style.display = (byId("encaminhador").value === "Outro") ? "block" : "none"; }
 function toggleMotivo(){ byId("wrapMotivo").style.display = (byId("elegivel").value === "Não") ? "block" : "none"; }
+function toggleStatusCustom(){ const sel = byId('statusSel'); const cust = byId('statusCustom'); cust.style.display = (sel.value === 'Outro') ? 'block' : 'none'; }
 function toggleDataAss(){}
 
 // Atualiza lista de arquivos selecionados
@@ -407,13 +418,16 @@ byId("documentos").addEventListener("change", function(e){
 
 function markErr(el, on){ el.classList.toggle("err", on); }
 function clearErrs(){
-  ["nome","status","estudo","data","dataAssinatura","outroEncaminhador","motivoNaoElegivel"].forEach(id=>markErr(byId(id),false));
+  ["nome","statusSel","statusCustom","estudo","data","dataAssinatura","outroEncaminhador","motivoNaoElegivel"].forEach(id=>{ const el = byId(id); if(el) markErr(el,false); });
 }
 
 function readForm(){
   clearErrs();
   const nome = byId("nome").value.trim();
-  const status = byId("status").value.trim();
+  let status = '';
+  const statusSel = byId('statusSel').value;
+  if(statusSel === 'Outro'){ status = byId('statusCustom').value.trim(); }
+  else { status = statusSel; }
   const estudo = byId("estudo").value.trim();
   const data = byId("data").value;
   let encaminhador = byId("encaminhador").value;
@@ -430,7 +444,7 @@ function readForm(){
 
   let invalid = false;
   if(!nome){ markErr(byId("nome"),true); invalid = true; }
-  if(!status){ markErr(byId("status"),true); invalid = true; }
+  if(!status){ markErr(byId("statusSel"),true); markErr(byId("statusCustom"),true); invalid = true; }
   if(!estudo){ markErr(byId("estudo"),true); invalid = true; }
   if(!data){ markErr(byId("data"),true); invalid = true; }
   if(tcleAssinado === "Sim" && !dataAssinatura){ markErr(byId("dataAssinatura"),true); invalid = true; showToast("TCLE = Sim → informe a data da assinatura.", true); }
@@ -469,11 +483,15 @@ function resetForm(){
   byId("btnSubmit").textContent="Adicionar paciente";
   byId("listaArquivos").textContent="(nenhum arquivo selecionado)";
   clearErrs();
+  byId("statusCustom").style.display='none';
 }
 
 function editPatient(id){
   const p = DB.find(r => r.id === id); if(!p) return;
-  byId("nome").value=p.nome; byId("status").value=p.status; byId("estudo").value=p.estudo; byId("data").value=p.data;
+  byId("nome").value=p.nome; byId("estudo").value=p.estudo; byId("data").value=p.data;
+  const preset = ["Triagem","Elegível","Randomizado","Não Elegível"];
+  if(preset.includes(p.status)){ byId('statusSel').value = p.status; byId('statusCustom').style.display='none'; byId('statusCustom').value=''; }
+  else { byId('statusSel').value = 'Outro'; byId('statusCustom').style.display='block'; byId('statusCustom').value = p.status || ''; }
 
   const fixed = ["Dr. Milton","Dr. Hélio","Dr. Thiago","ALTY","Outro"];
   if(fixed.includes(p.encaminhador)){

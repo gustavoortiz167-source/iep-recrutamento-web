@@ -99,8 +99,7 @@
       <div class="field"><span class="muted">TCLE Assinado?</span><select id="tcleAssinado" onchange="toggleDataAss()"><option>Não</option><option>Sim</option></select></div>
       <div class="field" id="wrapDataAss"><span class="muted">Data da Assinatura</span><input id="dataAssinatura" type="date"/></div>
 
-      <div class="field"><span class="muted">Condição Pós Screening</span><select id="elegivel" onchange="toggleMotivo()"><option value="">Selecione…</option><option>Randomizado</option><option>Falha de Screening</option></select><span class="hint">Se marcar "Falha de Screening", informe o motivo.</span></div>
-      <div class="field" id="wrapMotivo" style="grid-column: span 3; display:none;"><span class="muted">Motivo da não elegibilidade</span><textarea id="motivoNaoElegivel" placeholder="Descreva de forma objetiva"></textarea></div>
+      
 
       <div class="field" style="grid-column: span 2;">
         <span class="muted">Anexar documentos (PDF ou Word)</span>
@@ -175,7 +174,7 @@
         <thead>
           <tr>
             <th>Nome</th><th>Status</th><th>Estudo</th><th>Encaminhador</th>
-            <th>Elegível?</th><th>Motivo</th><th>Data</th><th>TCLE</th><th class="nowrap">Ações</th>
+            <th>Data</th><th>TCLE</th><th class="nowrap">Ações</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -401,7 +400,7 @@ function dataset(){
 
 /* ======= FORM ======= */
 function toggleOutroEnc(){ byId("wrapOutroEnc").style.display = (byId("encaminhador").value === "Outro") ? "block" : "none"; }
-function toggleMotivo(){ byId("wrapMotivo").style.display = (byId("elegivel").value === "Falha de Screening") ? "block" : "none"; }
+ 
 function toggleStatusCustom(){ const sel = byId('statusSel'); const cust = byId('statusCustom'); cust.style.display = (sel.value === 'Outro') ? 'block' : 'none'; }
 function toggleDataAss(){}
 
@@ -418,7 +417,7 @@ byId("documentos").addEventListener("change", function(e){
 
 function markErr(el, on){ el.classList.toggle("err", on); }
 function clearErrs(){
-  ["nome","statusSel","statusCustom","estudo","data","dataAssinatura","outroEncaminhador","motivoNaoElegivel"].forEach(id=>{ const el = byId(id); if(el) markErr(el,false); });
+  ["nome","statusSel","statusCustom","estudo","data","dataAssinatura","outroEncaminhador"].forEach(id=>{ const el = byId(id); if(el) markErr(el,false); });
 }
 
 function readForm(){
@@ -439,8 +438,6 @@ function readForm(){
   const tcleAgendado = byId("tcleAgendado").value;
   const tcleAssinado = byId("tcleAssinado").value;
   const dataAssinatura = byId("dataAssinatura").value;
-  const elegivel = byId("elegivel").value;
-  const motivoNaoElegivel = byId("motivoNaoElegivel").value.trim();
 
   let invalid = false;
   if(!nome){ markErr(byId("nome"),true); invalid = true; }
@@ -448,10 +445,9 @@ function readForm(){
   if(!estudo){ markErr(byId("estudo"),true); invalid = true; }
   if(!data){ markErr(byId("data"),true); invalid = true; }
   if(tcleAssinado === "Sim" && !dataAssinatura){ markErr(byId("dataAssinatura"),true); invalid = true; showToast("TCLE = Sim → informe a data da assinatura.", true); }
-  if(elegivel === "Falha de Screening" && !motivoNaoElegivel){ markErr(byId("motivoNaoElegivel"),true); invalid = true; showToast("Condição Pós Screening = Falha de Screening → informe o motivo.", true); }
   if(invalid){ return null; }
 
-  return { nome, status, estudo, data, encaminhador, tcleAgendado, tcleAssinado, dataAssinatura, elegivel, motivoNaoElegivel };
+  return { nome, status, estudo, data, encaminhador, tcleAgendado, tcleAssinado, dataAssinatura };
 }
 
 /* ======= CRUD ======= */
@@ -479,7 +475,7 @@ async function submitForm(){
 
 function resetForm(){
   Array.from(byId("patientForm").querySelectorAll("input, select, textarea")).forEach(el=>{ if(el.type==="checkbox") el.checked=false; else el.value=""; });
-  byId("editingId").value=""; byId("wrapOutroEnc").style.display="none"; byId("wrapMotivo").style.display="none";
+  byId("editingId").value=""; byId("wrapOutroEnc").style.display="none";
   byId("btnSubmit").textContent="Adicionar paciente";
   byId("listaArquivos").textContent="(nenhum arquivo selecionado)";
   clearErrs();
@@ -502,9 +498,6 @@ function editPatient(id){
   byId("tcleAgendado").value=p.tcleAgendado||"Não";
   byId("tcleAssinado").value=p.tcleAssinado||"Não";
   byId("dataAssinatura").value=p.dataAssinatura||"";
-  byId("elegivel").value=p.elegivel||"";
-  byId("wrapMotivo").style.display=(p.elegivel==="Não")?"block":"none";
-  byId("motivoNaoElegivel").value=p.motivoNaoElegivel||"";
 
   byId("editingId").value=p.id; byId("btnSubmit").textContent="Salvar alterações";
   window.scrollTo({top:0,behavior:"smooth"});
@@ -641,8 +634,7 @@ function renderTable(){
         <td>${esc(r.status)}</td>
         <td>${esc(r.estudo)}</td>
         <td>${esc(r.encaminhador)}</td>
-        <td>${esc(r.elegivel||"-")}</td>
-        <td>${esc(r.motivoNaoElegivel||"-")}</td>
+        
         <td>${esc(r.data)}</td>
         <td>${r.tcleAssinado==="Sim" ? '<span class="mono" style="color:#7CFC90">Sim</span>' : '<span class="mono" style="color:#bbb">Não</span>'}</td>
         <td class="nowrap">

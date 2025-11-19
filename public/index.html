@@ -99,7 +99,7 @@
       <div class="field"><span class="muted">TCLE Assinado?</span><select id="tcleAssinado" onchange="toggleDataAss()"><option>Não</option><option>Sim</option></select></div>
       <div class="field" id="wrapDataAss"><span class="muted">Data da Assinatura</span><input id="dataAssinatura" type="date"/></div>
 
-      <div class="field"><span class="muted">Elegível?</span><select id="elegivel" onchange="toggleMotivo()"><option value="">Selecione…</option><option>Sim</option><option>Não</option></select><span class="hint">Se marcar "Não", informe o motivo.</span></div>
+      <div class="field"><span class="muted">Condição Pós Screening</span><select id="elegivel" onchange="toggleMotivo()"><option value="">Selecione…</option><option>Randomizado</option><option>Falha de Screening</option></select><span class="hint">Se marcar "Falha de Screening", informe o motivo.</span></div>
       <div class="field" id="wrapMotivo" style="grid-column: span 3; display:none;"><span class="muted">Motivo da não elegibilidade</span><textarea id="motivoNaoElegivel" placeholder="Descreva de forma objetiva"></textarea></div>
 
       <div class="field" style="grid-column: span 2;">
@@ -401,7 +401,7 @@ function dataset(){
 
 /* ======= FORM ======= */
 function toggleOutroEnc(){ byId("wrapOutroEnc").style.display = (byId("encaminhador").value === "Outro") ? "block" : "none"; }
-function toggleMotivo(){ byId("wrapMotivo").style.display = (byId("elegivel").value === "Não") ? "block" : "none"; }
+function toggleMotivo(){ byId("wrapMotivo").style.display = (byId("elegivel").value === "Falha de Screening") ? "block" : "none"; }
 function toggleStatusCustom(){ const sel = byId('statusSel'); const cust = byId('statusCustom'); cust.style.display = (sel.value === 'Outro') ? 'block' : 'none'; }
 function toggleDataAss(){}
 
@@ -448,7 +448,7 @@ function readForm(){
   if(!estudo){ markErr(byId("estudo"),true); invalid = true; }
   if(!data){ markErr(byId("data"),true); invalid = true; }
   if(tcleAssinado === "Sim" && !dataAssinatura){ markErr(byId("dataAssinatura"),true); invalid = true; showToast("TCLE = Sim → informe a data da assinatura.", true); }
-  if(elegivel === "Não" && !motivoNaoElegivel){ markErr(byId("motivoNaoElegivel"),true); invalid = true; showToast("Elegível = Não → informe o motivo.", true); }
+  if(elegivel === "Falha de Screening" && !motivoNaoElegivel){ markErr(byId("motivoNaoElegivel"),true); invalid = true; showToast("Condição Pós Screening = Falha de Screening → informe o motivo.", true); }
   if(invalid){ return null; }
 
   return { nome, status, estudo, data, encaminhador, tcleAgendado, tcleAssinado, dataAssinatura, elegivel, motivoNaoElegivel };

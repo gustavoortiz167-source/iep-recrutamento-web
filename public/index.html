@@ -72,15 +72,12 @@
     <div class="body grid g4" id="patientForm">
       <div class="field"><span class="muted">Nome completo</span><input id="nome" placeholder="Ex.: João da Silva"/></div>
       <div class="field" id="statusField"><span class="muted">Status</span>
-        <select id="statusSel" onchange="toggleStatusCustom()">
+        <select id="statusSel">
           <option value="">Selecione…</option>
-          <option>Triagem</option>
-          <option>Elegível</option>
+          <option>Em screening</option>
+          <option>Falha de Screening</option>
           <option>Randomizado</option>
-          <option>Não Elegível</option>
-          <option>Outro</option>
         </select>
-        <input id="statusCustom" placeholder="Escreva o status" style="margin-top:6px; display:none"/>
       </div>
       <div class="field"><span class="muted">Estudo</span><select id="estudo"><option value="">Selecione…</option><option>Tropion-8</option><option>Evoke-4</option><option>Benito</option><option>Codebreak</option><option>M-18</option><option>Ker-50</option><option>Symphony</option><option>M-20</option></select></div>
       <div class="field"><span class="muted">Data (cadastro)</span><input id="data" type="date"/></div>
@@ -143,19 +140,6 @@
 
       <div class="cards">
         <div class="card"><div class="muted">Inseridos</div><div id="kpiInseridos" class="kpi">0</div></div>
-        <div class="card"><div class="muted">Elegíveis</div><div id="kpiElegiveis" class="kpi">0</div></div>
-        <div class="card"><div class="muted">Não elegíveis</div><div id="kpiNaoElegiveis" class="kpi">0</div></div>
-        <div class="card"><div class="muted">TCLE assinados</div><div id="kpiTCLE" class="kpi">0</div></div>
-      </div>
-
-      <div class="card mt12" style="text-align:left">
-        <div class="muted">Encaminhadores (detalhado)</div>
-        <pre id="kpiEncaminhador" class="mono" style="margin:8px 0 0; color:var(--azul-claro); white-space:pre-wrap;"></pre>
-      </div>
-
-      <div class="card mt12" style="text-align:left">
-        <div class="muted">Elegíveis por estudo</div>
-        <pre id="kpiEstudosElegiveis" class="mono" style="margin:8px 0 0; color:var(--azul-claro); white-space:pre-wrap;"></pre>
       </div>
     </div>
   </div>
@@ -401,7 +385,7 @@ function dataset(){
 /* ======= FORM ======= */
 function toggleOutroEnc(){ byId("wrapOutroEnc").style.display = (byId("encaminhador").value === "Outro") ? "block" : "none"; }
  
-function toggleStatusCustom(){ const sel = byId('statusSel'); const cust = byId('statusCustom'); cust.style.display = (sel.value === 'Outro') ? 'block' : 'none'; }
+ 
 function toggleDataAss(){}
 
 // Atualiza lista de arquivos selecionados
@@ -417,16 +401,13 @@ byId("documentos").addEventListener("change", function(e){
 
 function markErr(el, on){ el.classList.toggle("err", on); }
 function clearErrs(){
-  ["nome","statusSel","statusCustom","estudo","data","dataAssinatura","outroEncaminhador"].forEach(id=>{ const el = byId(id); if(el) markErr(el,false); });
+  ["nome","statusSel","estudo","data","dataAssinatura","outroEncaminhador"].forEach(id=>{ const el = byId(id); if(el) markErr(el,false); });
 }
 
 function readForm(){
   clearErrs();
   const nome = byId("nome").value.trim();
-  let status = '';
-  const statusSel = byId('statusSel').value;
-  if(statusSel === 'Outro'){ status = byId('statusCustom').value.trim(); }
-  else { status = statusSel; }
+  const status = byId('statusSel').value;
   const estudo = byId("estudo").value.trim();
   const data = byId("data").value;
   let encaminhador = byId("encaminhador").value;
@@ -441,7 +422,7 @@ function readForm(){
 
   let invalid = false;
   if(!nome){ markErr(byId("nome"),true); invalid = true; }
-  if(!status){ markErr(byId("statusSel"),true); markErr(byId("statusCustom"),true); invalid = true; }
+  if(!status){ markErr(byId("statusSel"),true); invalid = true; }
   if(!estudo){ markErr(byId("estudo"),true); invalid = true; }
   if(!data){ markErr(byId("data"),true); invalid = true; }
   if(tcleAssinado === "Sim" && !dataAssinatura){ markErr(byId("dataAssinatura"),true); invalid = true; showToast("TCLE = Sim → informe a data da assinatura.", true); }
@@ -479,15 +460,14 @@ function resetForm(){
   byId("btnSubmit").textContent="Adicionar paciente";
   byId("listaArquivos").textContent="(nenhum arquivo selecionado)";
   clearErrs();
-  byId("statusCustom").style.display='none';
+  
 }
 
 function editPatient(id){
   const p = DB.find(r => r.id === id); if(!p) return;
   byId("nome").value=p.nome; byId("estudo").value=p.estudo; byId("data").value=p.data;
-  const preset = ["Triagem","Elegível","Randomizado","Não Elegível"];
-  if(preset.includes(p.status)){ byId('statusSel').value = p.status; byId('statusCustom').style.display='none'; byId('statusCustom').value=''; }
-  else { byId('statusSel').value = 'Outro'; byId('statusCustom').style.display='block'; byId('statusCustom').value = p.status || ''; }
+  const preset = ["Em screening","Falha de Screening","Randomizado"];
+  byId('statusSel').value = preset.includes(p.status) ? p.status : "";
 
   const fixed = ["Dr. Milton","Dr. Hélio","Dr. Thiago","ALTY","Outro"];
   if(fixed.includes(p.encaminhador)){
@@ -530,32 +510,13 @@ async function openDocumento(id){
 /* ======= INDICADORES ======= */
 function computeIndicators(list){
   const inseridos = list.length;
-  const elegiveis = list.filter(r=>r.elegivel==="Sim").length;
-  const naoElegiveis = list.filter(r=>r.elegivel==="Não").length;
-  const tcle = list.filter(r=>r.tcleAssinado==="Sim").length;
-
-  const enc = {"Dr. Milton":0,"Dr. Hélio":0,"Dr. Thiago":0,"ALTY":0,"Outros":0};
-  list.forEach(r=>{ if(enc.hasOwnProperty(r.encaminhador)) enc[r.encaminhador]++; else enc["Outros"]++; });
-
-  const porEstudo = {};
-  list.filter(r=>r.elegivel==="Sim").forEach(r=>{
-    porEstudo[r.estudo] = (porEstudo[r.estudo]||0)+1;
-  });
-
-  return { inseridos, elegiveis, naoElegiveis, tcle, enc, porEstudo };
+  return { inseridos };
 }
 
 function updateKPIs(){
   const list = dataset();
   const k = computeIndicators(list);
   byId("kpiInseridos").textContent = k.inseridos;
-  byId("kpiElegiveis").textContent = k.elegiveis;
-  byId("kpiNaoElegiveis").textContent = k.naoElegiveis;
-  byId("kpiTCLE").textContent = k.tcle;
-  byId("kpiEncaminhador").textContent =
-    `Dr. Milton: ${k.enc["Dr. Milton"]} | Dr. Hélio: ${k.enc["Dr. Hélio"]} | Dr. Thiago: ${k.enc["Dr. Thiago"]} | ALTY: ${k.enc["ALTY"]} | Outros: ${k.enc["Outros"]}`;
-  const linhas = Object.entries(k.porEstudo).map(([e,v])=>`${e}: ${v}`);
-  byId("kpiEstudosElegiveis").textContent = linhas.length ? linhas.join(" | ") : "(sem registros elegíveis no período)";
 }
 
 /* ======= EXPORTS ======= */
@@ -566,8 +527,7 @@ function indicatorsSnapshot(){
   const k = computeIndicators(list);
   return {
     referencia, gerado_em: new Date().toISOString(),
-    inseridos: k.inseridos, elegiveis: k.elegiveis, nao_elegiveis: k.naoElegiveis, tcle_assinados: k.tcle,
-    encaminhadores: k.enc, elegiveis_por_estudo: k.porEstudo
+    inseridos: k.inseridos
   };
 }
 function exportIndicatorsJSON(){
@@ -582,12 +542,7 @@ function exportIndicatorsCSV(){
   csv += `Referência,${s.referencia}\n`;
   csv += `Gerado em,${new Date().toLocaleString()}\n\n`;
   csv += "Indicador,Valor\n";
-  csv += `Inseridos,${s.inseridos}\nElegíveis,${s.elegiveis}\nNão elegíveis,${s.nao_elegiveis}\nTCLE assinados,${s.tcle_assinados}\n\n`;
-  csv += "Encaminhadores,Quantidade\n";
-  for (const [k,v] of Object.entries(s.encaminhadores)) csv += `${k},${v}\n`;
-  csv += "\nElegíveis por estudo,Quantidade\n";
-  if(Object.keys(s.elegiveis_por_estudo).length===0) csv += "Sem registros,0\n";
-  else for (const [est,qtd] of Object.entries(s.elegiveis_por_estudo)) csv += `${est},${qtd}\n`;
+  csv += `Inseridos,${s.inseridos}\n`;
   const BOM = "\uFEFF";
   const blob = new Blob([BOM + csv], {type:"text/csv;charset=utf-8"});
   const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`indicadores_${s.referencia.replace(/\//g,'-')}.csv`; document.body.appendChild(a); a.click(); a.remove();
@@ -605,19 +560,6 @@ async function exportIndicatorsPDF(){
   doc.setFont("helvetica","bold"); doc.text("Resumo", 40, y); y += 16;
   doc.setFont("helvetica","normal");
   doc.text(`• Inseridos: ${s.inseridos}`, 40, y); y += 14;
-  doc.text(`• Elegíveis: ${s.elegiveis}`, 40, y); y += 14;
-  doc.text(`• Não elegíveis: ${s.nao_elegiveis}`, 40, y); y += 14;
-  doc.text(`• TCLE assinados: ${s.tcle_assinados}`, 40, y); y += 22;
-
-  doc.setFont("helvetica","bold"); doc.text("Encaminhadores", 40, y); y += 16;
-  doc.setFont("helvetica","normal");
-  for (const [kEnc,v] of Object.entries(s.encaminhadores)) { doc.text(`• ${kEnc}: ${v}`, 40, y); y += 14; }
-  y += 16;
-
-  doc.setFont("helvetica","bold"); doc.text("Elegíveis por estudo", 40, y); y += 16;
-  doc.setFont("helvetica","normal");
-  if (Object.keys(s.elegiveis_por_estudo).length === 0) { doc.text("• Sem registros", 40, y); }
-  else { for (const [est,qtd] of Object.entries(s.elegiveis_por_estudo)) { doc.text(`• ${est}: ${qtd}`, 40, y); y += 14; } }
 
   doc.save(`indicadores_${s.referencia.replace(/\//g,'-')}.pdf`);
 }

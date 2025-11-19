@@ -750,6 +750,7 @@ async function addAgendamento(){
   const data = byId('agData').value; const descricao = byId('agDesc').value.trim(); const paciente_id = byId('agPacienteSel').value;
   if(!data){ showToast('Informe a data do agendamento', true); return; }
   if(!paciente_id){ showToast('Selecione o paciente', true); return; }
+  const senha = await getAdminPassword(); if(!senha) return;
   const res = await fetch(`${API_BASE}/agendamentos`, { method:'POST', headers: { ...getAuthHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({paciente_id, data, descricao}) });
   const d = await res.json(); if(!res.ok){ if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return; } showToast(d.error||'Erro ao agendar', true); return; }
   byId('agData').value=''; byId('agDesc').value=''; byId('agPacienteSel').value='';
@@ -759,6 +760,7 @@ async function addAgendamento(){
 
 async function deleteAgendamento(id){
   if(!id) return; if(!confirm('Excluir este agendamento?')) return;
+  const senha = await getAdminPassword(); if(!senha) return;
   const res = await fetch(`${API_BASE}/agendamentos/${id}`, { method:'DELETE', headers: getAuthHeaders() });
   const d = await res.json().catch(()=>({})); if(!res.ok){ if(res.status===403){ showToast('Senha de edição incorreta', true); promptEditPassword(); return; } showToast(d.error||'Erro ao remover agendamento', true); return; }
   await loadAgendamentos(); showToast('Agendamento removido');
@@ -805,7 +807,7 @@ function openDayModal(dateStr){
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
         <button class="btn btn-ghost" onclick="document.body.removeChild(document.querySelector('.day-modal-overlay'))">Fechar</button>
-        <button class="btn" onclick="(async()=>{ const pid = byId('modalPaciente').value; const desc = byId('modalDesc').value.trim(); if(!pid){ showToast('Selecione o paciente', true); return; } const res = await fetch(API_BASE + '/agendamentos', { method:'POST', headers:{...getAuthHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify({paciente_id: pid, data: dateStr, descricao: desc}) }); const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao agendar', true); return; } await loadAgendamentos(); document.body.removeChild(overlay); openDayModal(dateStr); showToast('Agendado'); })()">Adicionar</button>
+        <button class="btn" onclick="(async()=>{ const pid = byId('modalPaciente').value; const desc = byId('modalDesc').value.trim(); if(!pid){ showToast('Selecione o paciente', true); return; } const s = await getAdminPassword(); if(!s){ return; } const res = await fetch(API_BASE + '/agendamentos', { method:'POST', headers:{...getAuthHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify({paciente_id: pid, data: dateStr, descricao: desc}) }); const d = await res.json(); if(!res.ok){ showToast(d.error||'Erro ao agendar', true); return; } await loadAgendamentos(); document.body.removeChild(overlay); openDayModal(dateStr); showToast('Agendado'); })()">Adicionar</button>
       </div>
     </div>
   `;

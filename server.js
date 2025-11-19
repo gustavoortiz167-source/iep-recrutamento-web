@@ -58,7 +58,7 @@ async function fetchGet(sql, params = []){
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Pesquisa@2';
 
 // Middleware
 app.use(cors());
@@ -105,7 +105,16 @@ const upload = multer({
 
 // ==================== MIDDLEWARE DE AUTENTICAÇÃO ====================
 
-function requireAuth(req, res, next) { next(); }
+function requireAuth(req, res, next) {
+  const password = req.headers['x-admin-password'] || req.body.password || req.query.password;
+  if (!password) {
+    return res.status(401).json({ error: 'Senha necessária para esta operação', requireAuth: true });
+  }
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(403).json({ error: 'Senha incorreta', requireAuth: true });
+  }
+  next();
+}
 
 // ==================== ROTAS DA API ====================
 
@@ -358,7 +367,7 @@ app.get('/api/agendamentos', async (req, res) => {
   }
 });
 
-app.post('/api/agendamentos', async (req, res) => {
+app.post('/api/agendamentos', requireAuth, async (req, res) => {
   try {
     const { paciente_id, data, descricao } = req.body;
     if (!paciente_id || !data) { return res.status(400).json({ error: 'paciente_id e data são obrigatórios' }); }
@@ -372,7 +381,7 @@ app.post('/api/agendamentos', async (req, res) => {
   }
 });
 
-app.delete('/api/agendamentos/:id', async (req, res) => {
+app.delete('/api/agendamentos/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await runQuery('DELETE FROM agendamentos WHERE id = ?', [id]);
@@ -389,7 +398,7 @@ app.delete('/api/agendamentos/:id', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor IEP Recrutamento rodando!`);
   console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`🔓 Acesso aberto (sem senha para operações)`);
+  console.log(`🔐 ADMIN_PASSWORD configurada`);
   if (usePostgres) {
     console.log(`✅ PostgreSQL conectado (dados persistentes)`);
   } else {

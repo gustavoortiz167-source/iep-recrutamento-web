@@ -522,8 +522,7 @@ function computeIndicators(list){
 }
 
 function updateKPIs(){
-  // ✅ Indicadores da HOME = GERAL
-  const list = datasetFiltered();
+    const list = Array.isArray(DB) ? DB : [];
   const k = computeIndicators(list);
   byId("kpiInseridos").textContent = k.inseridos;
 }
@@ -810,3 +809,4 @@ async function aprovarUsuario(id){
 </body>
 
 </html>
+

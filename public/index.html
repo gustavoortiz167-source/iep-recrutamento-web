@@ -73,11 +73,14 @@
       <div class="field"><span class="muted">Nome completo</span><input id="nome" placeholder="Ex.: João da Silva"/></div>
       <div class="field" id="statusField"><span class="muted">Status</span>
         <select id="statusSel">
-          <option value="">Selecione…</option>
-          <option>Em screening</option>
-          <option>Falha de Screening</option>
-          <option>Randomizado</option>
-        </select>
+  <option value="">Selecione…</option>
+  <option>Em avaliação</option>
+  <option>Não Elegível</option>
+  <option>TCLE Agendado</option>
+  <option>Em screening</option>
+  <option>Randomizado</option>
+  <option>Falha de screening</option>
+</select>
       </div>
       <div class="field"><span class="muted">Estudo</span><select id="estudo"><option value="">Selecione…</option><option>Tropion-8</option><option>Evoke-4</option><option>Benito</option><option>Codebreak</option><option>M-18</option><option>Ker-50</option><option>Symphony</option><option>M-20</option></select></div>
       <div class="field"><span class="muted">Data (cadastro)</span><input id="data" type="date"/></div>
@@ -377,9 +380,14 @@ async function loadLogo(){
 }
 
 /* ======= DATASET ======= */
-function dataset(){
+function datasetAll(){
+  return Array.isArray(DB) ? DB : [];
+}
+
+// ✅ dataset filtrado por mês (USADO SOMENTE na “Visão”/tabela/gráfico)
+function datasetFiltered(){
   const sel = parseMonth(byId("monthFilter").value);
-  return DB.filter(r => inSelectedMonth(r.data, sel));
+  return (Array.isArray(DB) ? DB : []).filter(r => inSelectedMonth(r.data, sel));
 }
 
 /* ======= FORM ======= */
@@ -466,8 +474,8 @@ function resetForm(){
 function editPatient(id){
   const p = DB.find(r => r.id === id); if(!p) return;
   byId("nome").value=p.nome; byId("estudo").value=p.estudo; byId("data").value=p.data;
-  const preset = ["Em screening","Falha de Screening","Randomizado"];
-  byId('statusSel').value = preset.includes(p.status) ? p.status : "";
+  const preset = ["Em avaliação","Não Elegível","TCLE Agendado","Em screening","Randomizado","Falha de screening"];
+byId('statusSel').value = preset.includes(p.status) ? p.status : "";
 
   const fixed = ["Dr. Milton","Dr. Hélio","Dr. Thiago","ALTY","Outro"];
   if(fixed.includes(p.encaminhador)){
@@ -514,7 +522,8 @@ function computeIndicators(list){
 }
 
 function updateKPIs(){
-  const list = dataset();
+  // ✅ Indicadores da HOME = GERAL
+  const list = datasetFiltered();
   const k = computeIndicators(list);
   byId("kpiInseridos").textContent = k.inseridos;
 }
@@ -523,7 +532,7 @@ function updateKPIs(){
 function indicatorsSnapshot(){
   const sel = parseMonth(byId("monthFilter").value);
   const referencia = sel ? `${String(sel.m).padStart(2,'0')}/${sel.y}` : "Todos os meses";
-  const list = dataset();
+  const list = datasetFiltered();
   const k = computeIndicators(list);
   return {
     referencia, gerado_em: new Date().toISOString(),
@@ -567,7 +576,7 @@ async function exportIndicatorsPDF(){
 /* ======= TABELA & GRÁFICO ======= */
 function renderTable(){
   const tbody = byId("tableBody");
-  const list = dataset();
+  const list = datasetFiltered();
   tbody.innerHTML="";
   list.forEach(r=>{
     tbody.insertAdjacentHTML("beforeend", `
@@ -590,7 +599,7 @@ function renderTable(){
   byId("emptyMsg").textContent = list.length ? "" : "Sem pacientes para esta visão.";
 }
 function updateChart(){
-  const list = dataset();
+  const list = datasetFiltered();
   const statuses = {};
   list.forEach(p => { statuses[p.status] = (statuses[p.status] || 0) + 1; });
   const ctx = byId("statusChart").getContext("2d");
@@ -618,6 +627,7 @@ async function init(){
   await loadAgendamentos();
   const m = new Date(); byId('agMonth') && (byId('agMonth').value = `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`);
   showToast("Sistema carregado com sucesso!");
+  byId("monthFilter").value = "";
   refreshUI();
 }
 window.addEventListener('load', init);
@@ -798,4 +808,5 @@ async function aprovarUsuario(id){
 }
 </script>
 </body>
+
 </html>
